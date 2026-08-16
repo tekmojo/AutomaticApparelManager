@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <MainButtonDef>
+    <defName>AutomaticApparel_MainButton</defName>
+    <label>Auto Apparel</label>
+    <description>Configure automatic apparel rules.</description>
+    <tabWindowClass>AutomaticApparel.UI.MainRulesWindow</tabWindowClass>
+    <order>47</order>
+  </MainButtonDef>
+</Defs>
