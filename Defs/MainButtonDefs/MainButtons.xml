@@ -6,5 +6,7 @@
     <description>Configure automatic apparel rules.</description>
     <tabWindowClass>AutomaticApparel.UI.MainRulesWindow</tabWindowClass>
     <order>47</order>
+    <minimized>true</minimized>
+    <iconPath>UI/Buttons/MainButtons/AutomaticApparel</iconPath>
   </MainButtonDef>
 </Defs>

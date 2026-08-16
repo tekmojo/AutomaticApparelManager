@@ -100,24 +100,7 @@ namespace AutomaticApparel.UI
 
         private static void ShowApparelMenu(ApparelRule rule)
         {
-            var defs = DefDatabase<ThingDef>.AllDefsListForReading
-                .Where(d => d?.apparel != null)
-                .OrderBy(d => d.LabelCap.ToString())
-                .ToList();
-
-            var options = new List<FloatMenuOption>();
-            foreach (ThingDef def in defs)
-            {
-                ThingDef captured = def;
-                string label = $"{captured.LabelCap} [{captured.defName}]";
-                options.Add(new FloatMenuOption(label, () =>
-                {
-                    if (!rule.RequiredApparel.Contains(captured))
-                        rule.RequiredApparel.Add(captured);
-                }));
-            }
-
-            Find.WindowStack.Add(new FloatMenu(options));
+            Find.WindowStack.Add(new ApparelSelectionWindow(rule));
         }
     }
 }

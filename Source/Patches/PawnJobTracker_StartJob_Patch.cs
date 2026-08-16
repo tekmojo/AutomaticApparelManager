@@ -13,9 +13,9 @@ namespace AutomaticApparel.Patches
         public static void Prefix(
             Pawn_JobTracker __instance,
             ref Job newJob,
-            ThinkNode jobGiver = null,
-            ref JobTag? tag = null,
-            bool fromQueue = false)
+            ref ThinkNode jobGiver,
+            ref JobTag? tag,
+            bool fromQueue)
         {
             if (newJob == null || newJob.def == JobDefOf.Wear)
                 return;

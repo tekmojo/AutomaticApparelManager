@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="netstandard">
+      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\netstandard.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
