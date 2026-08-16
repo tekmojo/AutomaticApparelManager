@@ -1,0 +1,23 @@
+# Build outputs
+bin/
+obj/
+*.dll
+*.pdb
+
+# Keep the RimWorld mod assembly output directory in Git
+!1.6/Assemblies/.gitkeep
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local packages / temporary files
+*.zip
+*.tmp
