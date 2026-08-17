@@ -4,7 +4,7 @@
 
 Build a general-purpose RimWorld mod that automatically manages pawn apparel according to context rather than requiring the player to manually switch outfits.
 
-The initial motivating use case is protective equipment for Dubs Rimatomics: when a pawn receives work inside a nuclear/radiation area, the pawn should equip configured radiation PPE before entering and later return to normal clothing. The architecture must remain generic and must not require Rimatomics.
+The motivating use case came from a Dubs Rimatomics colony: workers assigned jobs inside a reactor area needed to collect radiation suits and masks from a nearby locker room, perform the work, return the shared PPE, and restore their personal clothing. This scenario inspired the workflow but does not create a dependency or integration. The manager does not detect radiation; it reacts to player-defined areas and selected apparel, allowing the same system to serve toxic zones, firefighting, cold storage, clean rooms, industrial hazards, combat loadouts, specialist uniforms and other outfit rules.
 
 ## Core design principles
 
@@ -162,7 +162,7 @@ Improve rule management for larger colonies:
 
 ## Compatibility strategy
 
-The core mod should not reference Rimatomics assemblies. Rimatomics apparel should appear naturally because the UI enumerates loaded apparel defs.
+The core mod does not reference Rimatomics assemblies, definitions or package IDs. Rimatomics apparel appears naturally when that mod is installed because the UI enumerates loaded apparel defs; when it is absent, Automatic Apparel Manager continues to work normally with vanilla or other modded apparel.
 
 Optional compatibility modules may be introduced later only when a mod requires specialized hazard detection unavailable through generic RimWorld concepts.
 

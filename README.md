@@ -4,7 +4,15 @@ Automatic Apparel Manager is a RimWorld 1.6 mod for context-aware outfit and per
 
 Players define rules that equip specified apparel before a pawn performs work in a map area. An optional locker-room area keeps outfit changes controlled: the pawn returns there, removes the work gear, and restores the exact personal apparel saved at the start of the intervention.
 
-The initial proof of concept uses Dubs Rimatomics radiation PPE as the primary real-world test case, but Rimatomics is not a hard dependency.
+## Inspiration and real-world example
+
+Automatic Apparel Manager was inspired by a Dubs Rimatomics colony where pawns needed radiation suits and masks before entering a reactor area. Managing those changes by hand was repetitive, especially when several workers shared protective gear. The intended workflow became:
+
+`reactor job → visit locker room → equip radiation PPE → perform work safely → return to locker room → remove PPE → restore personal clothes`
+
+Rimatomics is an example, not a dependency or built-in integration. Automatic Apparel Manager does not reference Rimatomics assemblies, definitions, or package IDs, and it does not detect radiation itself. The player defines the relevant map area and chooses apparel from whatever content is currently loaded. Without Rimatomics installed, the mod works normally with vanilla apparel or apparel from any other mod.
+
+The same area-based workflow can support many scenarios: toxic or polluted zones, firefighting equipment, freezer clothing, clean-room outfits, hazardous industrial work, combat armor, specialist uniforms, or role-playing dress codes.
 
 ## Current features
 
@@ -57,7 +65,7 @@ The DLL is written to `1.6\Assemblies\AutomaticApparel.dll`.
 
 Copy the repository folder into your RimWorld `Mods` directory, enable **Harmony** first, then enable **Automatic Apparel Manager**.
 
-## Example: radiation PPE with Dubs Rimatomics
+## Example setup: radiation PPE with Dubs Rimatomics
 
 1. Load a colony with Dubs Rimatomics.
 2. Create or use a RimWorld allowed area covering the reactor room, for example `Nuclear`.
