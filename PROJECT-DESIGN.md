@@ -9,7 +9,7 @@ The initial motivating use case is protective equipment for Dubs Rimatomics: whe
 ## Core design principles
 
 1. **Generic rules, not hard-coded mod integrations.** Rules operate on RimWorld concepts such as areas, jobs, apparel defs and pawns.
-2. **Use vanilla behavior where practical.** Phase 1 uses RimWorld's normal `Wear` jobs for pathing, reservations and apparel conflict handling.
+2. **Use vanilla behavior where practical.** The manager uses RimWorld jobs, pathing, reservations, areas and storage settings, adding guards only where ownership and transition ordering require them.
 3. **Save-specific configuration.** Player-created rules belong to the current game/save.
 4. **Compatibility first.** Avoid replacing core apparel systems when interception and normal jobs can accomplish the behavior.
 5. **Incremental milestones.** Establish reliable detection/equipping before implementing restoration, conflicts and more trigger types.
@@ -70,9 +70,9 @@ A dedicated **Auto Apparel** main tab provides:
 - Clear apparel
 - Delete rule
 
-## Phase 1 limitations
+## Phase 1 baseline limitations
 
-Phase 1 intentionally does not restore displaced apparel. RimWorld's vanilla `Wear` job may drop clothing that conflicts with required PPE. Those items remain on the map.
+The original Phase 1 baseline did not restore displaced apparel. Phase 2 now addresses this with persistent snapshots, locker-room transitions and ownership protection.
 
 Phase 1 also does not yet provide:
 
@@ -88,9 +88,9 @@ Phase 1 also does not yet provide:
 - Apparel condition/quality filters
 - Storage assignment
 
-## Phase 2 — Apparel state and restoration
+## Phase 2 — Apparel state and restoration (implemented and under playtesting)
 
-Introduce pawn-specific runtime state containing at minimum:
+Pawn-specific, save-persistent runtime state contains:
 
 - Active automatic-apparel rule(s)
 - Apparel worn before automatic intervention
@@ -98,11 +98,34 @@ Introduce pawn-specific runtime state containing at minimum:
 - Transition state
 - Original/resumable work context where necessary
 
-When a pawn no longer needs the PPE, the manager should restore the previous valid apparel when possible.
+When a pawn no longer needs the configured outfit, the manager returns the pawn to the locker room when one is assigned, removes managed work gear, and restores the exact saved personal items. Ordinary work remains blocked while a temporarily unavailable saved item is retried.
 
-Restoration must account for apparel that was destroyed, hauled away, reserved, forbidden, inaccessible or made incompatible by another change.
+Restoration accounts for apparel that is hauled, reserved, temporarily inaccessible or forbidden. Destroyed references are skipped. A player may use **Clear saved owner** to deliberately release an item or resolve a permanently invalid claim.
 
-A grace period should prevent rapid equip/unequip oscillation when a pawn repeatedly crosses a rule boundary.
+A future grace period may reduce rapid transitions when a pawn repeatedly crosses a rule boundary.
+
+### Changing areas
+
+Each rule may reference a separate locker-room area. Required apparel stored there is preferred, with suitable gear elsewhere on the map used as a fallback. When triggering work ends, pawns return to the locker room before removing automatic apparel and restoring their saved outfit. Dropped gear remains allowed and RimWorld's normal hauling system places it according to storage priority and the Automatic Apparel special filters. Rules without a locker room retain direct changing behavior.
+
+### Managed apparel and ownership
+
+- Rule-required work gear is shared among eligible colony pawns.
+- Displaced personal gear is persistently associated with its original pawn.
+- Outfit optimization, direct wear calls and incoming wear jobs reject personal gear saved for another pawn.
+- During return/restoration, the owner receives reservation priority over hauling, repair and processing jobs.
+- A periodic invariant check removes wrongly worn saved gear if another mod bypasses normal wear validation.
+- Non-colony pawns cannot target managed gear, including through modded repair or processing jobs.
+- Inspection text exposes item role, saved owner, required work areas and locker areas.
+
+### Storage integration
+
+Two special apparel filters integrate with stockpiles and storage buildings:
+
+- **Allow automatic apparel** accepts rule-required or currently managed items.
+- **Allow non-automatic apparel** accepts ordinary apparel.
+
+Filter enforcement occurs at both thing-filter and storage-acceptance boundaries to remain compatible with alternate hauling systems.
 
 ## Phase 3 — Rule engine
 
@@ -175,4 +198,4 @@ The C# project references RimWorld's local managed assemblies and Harmony rather
 
 `main` should represent the current stable development baseline. Substantial features should be developed on branches and reviewed through pull requests before merging.
 
-Recommended next milestone after the Phase 1 baseline compiles and runs in RimWorld 1.6: **pawn apparel snapshots and reliable restoration**.
+Recommended next milestone after Phase 2 stabilization: **rule priority/conflict handling, configurable pawn eligibility, and clearer status diagnostics**.

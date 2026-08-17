@@ -21,3 +21,4 @@ Thumbs.db
 # Local packages / temporary files
 *.zip
 *.tmp
+work/

@@ -1,34 +1,39 @@
-# Automatic Apparel Manager — Phase 1
+# Automatic Apparel Manager
 
-Automatic Apparel Manager is a RimWorld 1.6 mod project for context-aware apparel automation.
+Automatic Apparel Manager is a RimWorld 1.6 mod for context-aware outfit and personal protective equipment (PPE) changes.
 
-The long-term goal is to let players define rules that automatically equip appropriate clothing or PPE based on a pawn's context, such as job destination, area, work type, environmental conditions, or other triggers.
+Players define rules that equip specified apparel before a pawn performs work in a map area. An optional locker-room area keeps outfit changes controlled: the pawn returns there, removes the work gear, and restores the exact personal apparel saved at the start of the intervention.
 
 The initial proof of concept uses Dubs Rimatomics radiation PPE as the primary real-world test case, but Rimatomics is not a hard dependency.
 
-## Implemented in this milestone
+## Current features
 
-- RimWorld 1.6 mod metadata and Harmony dependency.
-- Save-specific `ApparelRule` storage via `GameComponent`.
-- Dedicated **Auto Apparel** main tab.
-- Create/delete/enable rules.
-- Select an existing map area.
-- Select arbitrary vanilla or modded apparel `ThingDef`s.
-- Harmony interception of `Pawn_JobTracker.StartJob`.
-- Detect jobs whose A/B/C target lies inside the configured area.
-- Find reachable, reservable copies of missing apparel.
-- Queue vanilla `Wear` jobs before the original work job.
-- Resume the original job from RimWorld's normal job queue.
+- Save-specific, named rules with enable/disable controls.
+- Work-area and optional locker-room selection using existing RimWorld areas.
+- Native area highlighting when an assigned area is hovered.
+- Searchable selection of arbitrary vanilla or modded apparel.
+- Automatic collection and wearing of missing rule-required gear before work begins.
+- Locker-room preference with map-wide fallback when locating required gear.
+- Exact snapshots of displaced personal clothing and mandatory restoration before ordinary work resumes.
+- Persistent saved-owner protection so another pawn cannot wear claimed personal apparel.
+- Owner-priority reservations while restoring, preventing hauling or repair work from delaying retrieval.
+- Inspection details showing whether an item is required gear or saved personal gear, its owner, and associated areas.
+- **Jump to owner** and **Clear saved owner** actions on saved apparel.
+- **Allow automatic apparel** and **Allow non-automatic apparel** storage filters.
+- Dropped managed apparel is kept allowed so normal hauling can move it to suitable storage.
+- Non-colony pawns, including guests, cannot reserve, haul, repair, process, or wear managed apparel.
+- Player-controlled pawns and robots may still haul or repair managed gear; only the saved owner may wear personal gear.
+- Children and other pawns that cannot equip the selected apparel are skipped safely.
 
-## Deliberately not implemented yet
+## Current limitations and planned expansion
 
-- Restoration of previous clothing.
-- Grace period.
+- Grace period between rapid area transitions.
 - Multiple-rule priority/conflict resolution.
 - Strict / Warning / Best Effort behavior.
-- Pawn filters beyond player colonists.
+- Configurable pawn assignment and filters.
 - JobDef / WorkType triggers.
 - Temperature/environment triggers.
+- Localization beyond the current English interface.
 
 ## Build
 
@@ -52,7 +57,7 @@ The DLL is written to `1.6\Assemblies\AutomaticApparel.dll`.
 
 Copy the repository folder into your RimWorld `Mods` directory, enable **Harmony** first, then enable **Automatic Apparel Manager**.
 
-## First Rimatomics test
+## Example: radiation PPE with Dubs Rimatomics
 
 1. Load a colony with Dubs Rimatomics.
 2. Create or use a RimWorld allowed area covering the reactor room, for example `Nuclear`.
@@ -60,17 +65,17 @@ Copy the repository folder into your RimWorld `Mods` directory, enable **Harmony
 4. Create a rule named `Nuclear PPE`.
 5. Select the `Nuclear` area.
 6. Add the Rimatomics radiation suit and radiation mask from the apparel menu.
-7. Make sure reachable copies are stored on the map and are not forbidden.
-8. Allow a colonist to receive a job whose target is inside that area.
+7. Create a separate locker-room area around dedicated apparel storage and assign it to the rule.
+8. In the locker storage settings, enable **Allow automatic apparel**. Disable it on storage that should reject managed gear.
+9. Make sure reachable copies are stored on the map and are not forbidden.
+10. Allow a colonist to receive a job whose target is inside the work area.
 
-Expected prototype behavior:
+Expected behavior:
 
-`reactor job -> Wear PPE item 1 -> Wear PPE item 2 -> original reactor job`
+`reactor job → obtain and wear PPE → perform work → return to locker room → remove PPE → restore saved clothes → resume ordinary work`
+
+Saved personal gear is reserved logically for its original pawn. If an item is permanently lost or you want another pawn to use it, select the item and choose **Clear saved owner**.
 
 Enable RimWorld dev mode to see successful interception messages in the log.
-
-## Important Phase 1 limitation
-
-The prototype intentionally does **not** restore prior clothing yet. Vanilla `Wear` may drop conflicting apparel while equipping PPE; that clothing remains on the map. Restoration and apparel snapshots are the next milestone.
 
 See [`PROJECT-DESIGN.md`](PROJECT-DESIGN.md) for the full project scope and roadmap.

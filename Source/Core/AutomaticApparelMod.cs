@@ -10,7 +10,7 @@ namespace AutomaticApparel.Core
         public AutomaticApparelMod(ModContentPack content) : base(content)
         {
             new Harmony(HarmonyId).PatchAll();
-            Log.Message("[Automatic Apparel] Phase 1 loaded.");
+            Log.Message("[Automatic Apparel] Phase 2 snapshot support loaded.");
         }
     }
 }

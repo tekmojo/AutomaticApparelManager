@@ -3,6 +3,7 @@
   <name>Automatic Apparel Manager</name>
   <author>tekmojo</author>
   <packageId>tekmojo.automaticapparelmanager</packageId>
+  <modIconPath>UI/Buttons/MainButtons/AutomaticApparel</modIconPath>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
@@ -16,5 +17,5 @@
   <loadAfter>
     <li>brrainz.harmony</li>
   </loadAfter>
-  <description>Context-aware automatic apparel management for RimWorld. Phase 1 proof of concept.</description>
+  <description>Create area-based outfit and personal protective equipment (PPE) rules. Pawns collect required gear before specialized work, return through an optional locker room, and restore their protected personal clothing afterward. Includes searchable apparel selection, managed-apparel storage filters, saved-owner protection, and support for vanilla or modded apparel without hard-coded integrations.</description>
 </ModMetaData>

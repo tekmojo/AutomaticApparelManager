@@ -20,11 +20,21 @@ namespace AutomaticApparel.Detection
                 return null;
 
             return component.Rules.FirstOrDefault(rule =>
-                rule != null &&
-                rule.Enabled &&
-                rule.Area != null &&
-                rule.Area.Map == pawn.Map &&
-                JobTargetsArea(job, rule.Area));
+                RuleCanApplyToPawn(pawn, rule) && MatchesRule(pawn, job, rule));
+        }
+
+        public static bool MatchesRule(Pawn pawn, Job job, ApparelRule rule)
+        {
+            return pawn != null &&
+                   job != null &&
+                   pawn.Map != null &&
+                   pawn.IsColonist &&
+                   !pawn.Drafted &&
+                   rule != null &&
+                   rule.Enabled &&
+                   rule.Area != null &&
+                   rule.Area.Map == pawn.Map &&
+                   JobTargetsArea(job, rule.Area);
         }
 
         public static List<ThingDef> MissingRequiredApparel(Pawn pawn, ApparelRule rule)
@@ -36,6 +46,18 @@ namespace AutomaticApparel.Detection
                 .Where(def => def != null && !pawn.apparel.WornApparel.Any(a => a.def == def))
                 .Distinct()
                 .ToList();
+        }
+
+        private static bool RuleCanApplyToPawn(Pawn pawn, ApparelRule rule)
+        {
+            if (pawn == null || rule?.RequiredApparel == null)
+                return false;
+
+            return rule.RequiredApparel
+                .Where(def => def?.apparel != null)
+                .All(def =>
+                    ApparelUtility.HasPartsToWear(pawn, def) &&
+                    (def.apparel.developmentalStageFilter & pawn.DevelopmentalStage) != 0);
         }
 
         private static bool JobTargetsArea(Job job, Area area)
