@@ -17,5 +17,5 @@
   <loadAfter>
     <li>brrainz.harmony</li>
   </loadAfter>
-  <description>Create area-based outfit and personal protective equipment (PPE) rules. Pawns collect required gear before specialized work, return through an optional locker room, and restore their protected personal clothing afterward. Includes searchable apparel selection, managed-apparel storage filters, saved-owner protection, and support for vanilla or modded apparel without hard-coded integrations.</description>
+  <description>Create area-based work outfit and personal protective equipment (PPE) rules. Colonists equip required gear before qualifying work, use a configurable follow-up task buffer, return through an optional locker room, and restore their exact saved clothing. Includes live worker status, pause/recall controls, hauling and wandering permissions, child access, locker restocking, managed-apparel storage filters, saved-owner protection, and generic support for vanilla or modded apparel.</description>
 </ModMetaData>

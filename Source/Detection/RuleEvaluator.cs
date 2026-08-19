@@ -12,7 +12,8 @@ namespace AutomaticApparel.Detection
     {
         public static ApparelRule MatchingRule(Pawn pawn, Job job)
         {
-            if (pawn == null || job == null || pawn.Map == null || !pawn.IsColonist || pawn.Drafted)
+            if (pawn == null || job == null || pawn.Map == null || !pawn.IsColonist ||
+                pawn.RaceProps?.Humanlike != true || pawn.apparel == null || pawn.Drafted)
                 return null;
 
             var component = AutomaticApparelGameComponent.Current;
@@ -29,9 +30,12 @@ namespace AutomaticApparel.Detection
                    job != null &&
                    pawn.Map != null &&
                    pawn.IsColonist &&
+                   pawn.RaceProps?.Humanlike == true &&
+                   pawn.apparel != null &&
                    !pawn.Drafted &&
                    rule != null &&
                    rule.Enabled &&
+                   !rule.WorkAreaPaused &&
                    rule.Area != null &&
                    rule.Area.Map == pawn.Map &&
                    JobTargetsArea(job, rule.Area);
@@ -48,44 +52,102 @@ namespace AutomaticApparel.Detection
                 .ToList();
         }
 
-        private static bool RuleCanApplyToPawn(Pawn pawn, ApparelRule rule)
+        public static bool HasMissingRequiredApparel(Pawn pawn, ApparelRule rule)
         {
-            if (pawn == null || rule?.RequiredApparel == null)
+            if (pawn?.apparel == null || rule?.RequiredApparel == null)
                 return false;
 
-            return rule.RequiredApparel
-                .Where(def => def?.apparel != null)
-                .All(def =>
-                    ApparelUtility.HasPartsToWear(pawn, def) &&
-                    (def.apparel.developmentalStageFilter & pawn.DevelopmentalStage) != 0);
+            foreach (ThingDef required in rule.RequiredApparel)
+            {
+                if (required == null)
+                    continue;
+
+                bool worn = false;
+                foreach (Apparel apparel in pawn.apparel.WornApparel)
+                {
+                    if (apparel?.def == required)
+                    {
+                        worn = true;
+                        break;
+                    }
+                }
+
+                if (!worn)
+                    return true;
+            }
+
+            return false;
         }
 
-        private static bool JobTargetsArea(Job job, Area area)
+        public static bool RuleCanApplyToPawn(Pawn pawn, ApparelRule rule)
         {
+            if (pawn == null || pawn.RaceProps?.Humanlike != true || pawn.apparel == null ||
+                rule?.RequiredApparel == null)
+                return false;
+
+            foreach (ThingDef def in rule.RequiredApparel)
+            {
+                if (def?.apparel == null)
+                    continue;
+                if (!ApparelUtility.HasPartsToWear(pawn, def) ||
+                    (def.apparel.developmentalStageFilter & pawn.DevelopmentalStage) == 0)
+                    return false;
+            }
+
+            return true;
+        }
+
+        public static bool JobTargetsArea(Job job, Area area)
+        {
+            if (job == null)
+                return false;
+
             return TargetInside(job.targetA, area) ||
                    TargetInside(job.targetB, area) ||
-                   TargetInside(job.targetC, area);
+                   TargetInside(job.targetC, area) ||
+                   TargetsInside(job.targetQueueA, area) ||
+                   TargetsInside(job.targetQueueB, area);
         }
+
+        private static bool TargetsInside(
+            IEnumerable<LocalTargetInfo> targets, Area area) =>
+            targets != null && targets.Any(target => TargetInside(target, area));
 
         private static bool TargetInside(LocalTargetInfo target, Area area)
         {
             if (!target.IsValid || area == null)
                 return false;
 
-            IntVec3 cell;
             if (target.HasThing)
             {
                 var thing = target.Thing;
                 if (thing == null || thing.MapHeld != area.Map)
                     return false;
-                cell = thing.PositionHeld;
-            }
-            else
-            {
-                cell = target.Cell;
+
+                // Work jobs commonly target a building's anchor cell while the
+                // pawn performs the job from an adjacent interaction cell. Check
+                // both, plus the full footprint for multi-cell workstations.
+                if (CellInside(thing.PositionHeld, area))
+                    return true;
+
+                // Held or carried targets can have MapHeld/PositionHeld through
+                // their holder while their direct Map is null. RimWorld's
+                // InteractionCells calculation requires a spawned thing/map.
+                if (!thing.Spawned || thing.Map != area.Map)
+                    return false;
+
+                if (GenAdj.CellsOccupiedBy(thing).Any(cell => CellInside(cell, area)))
+                    return true;
+
+                List<IntVec3> interactionCells = thing.InteractionCells;
+                return interactionCells != null &&
+                       interactionCells.Any(cell => CellInside(cell, area));
             }
 
-            return cell.IsValid && cell.InBounds(area.Map) && area[cell];
+            return CellInside(target.Cell, area);
         }
+
+        private static bool CellInside(IntVec3 cell, Area area) =>
+            area?.Map != null && cell.IsValid && cell.InBounds(area.Map) && area[cell];
     }
 }

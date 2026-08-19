@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using System;
 using AutomaticApparel.Core;
 using AutomaticApparel.Detection;
+using AutomaticApparel.Rules;
 using AutomaticApparel.State;
 using AutomaticApparel.Storage;
 using HarmonyLib;
@@ -31,6 +33,18 @@ namespace AutomaticApparel.Patches
             AutomaticApparelGameComponent component = AutomaticApparelGameComponent.Current;
             PawnApparelState state = component?.StateFor(pawn);
 
+            // Some modded robot thinkers start their wander job without passing
+            // through the vanilla ThinkNode_JobGiver result patch. At this
+            // boundary the originating giver is still available, so redirect
+            // the job before it can enter the restricted area. The helper
+            // converts it to a safe GotoWander destination and avoids the
+            // cancel/reselect loop seen at doorways.
+            if (PausedAreaWorkFilter.TryRedirectWanderingJob(pawn, newJob, jobGiver))
+            {
+                jobGiver = null;
+                tag = null;
+            }
+
             // Keep guests and other non-colony pawns from reserving, hauling,
             // repairing, processing, or wearing managed apparel. Checking the
             // common job boundary makes this work for native and modded jobs,
@@ -45,12 +59,22 @@ namespace AutomaticApparel.Patches
                 return;
             }
 
+            // Access controls also apply to animals, mechs, and modded robots,
+            // but apparel intervention does not. Clear any legacy state created
+            // for a non-humanlike unit and leave its real job/status untouched.
+            if (pawn.RaceProps?.Humanlike != true || pawn.apparel == null)
+            {
+                if (state != null)
+                    component.EndIntervention(pawn);
+                return;
+            }
+
             if (newJob.def == JobDefOf.Wear &&
                 newJob.targetA.Thing is Apparel wearTarget &&
                 !AutomaticApparelClassifier.Matches(wearTarget.def) &&
                 component?.IsSavedForOtherPawn(wearTarget, pawn) == true)
             {
-                ReplaceWithBriefWait(ref newJob, ref jobGiver, ref tag);
+                ReplaceWithBriefWait(pawn, ref newJob, ref jobGiver, ref tag);
                 return;
             }
 
@@ -59,7 +83,7 @@ namespace AutomaticApparel.Patches
                 state != null &&
                 !IsAllowedTransitionWear(state, transitionWearTarget))
             {
-                ReplaceWithBriefWait(ref newJob, ref jobGiver, ref tag);
+                ReplaceWithBriefWait(pawn, ref newJob, ref jobGiver, ref tag);
                 return;
             }
 
@@ -84,32 +108,149 @@ namespace AutomaticApparel.Patches
                     return;
                 }
 
-                bool matchesActiveRule = RuleEvaluator.MatchesRule(pawn, newJob, activeRule);
-                if (!matchesActiveRule && state.Transition == ApparelTransition.Preparing)
+                if (state.Transition == ApparelTransition.Restoring)
+                {
+                    // A work candidate can be reconsidered while saved apparel
+                    // is still being restored. Never let that stale candidate
+                    // fall through to the normal missing-work-gear path or the
+                    // pawn will alternate forever between the two outfits.
+                    int restorationTick = Find.TickManager?.TicksGame ?? 0;
+                    if (IsRecoveryWaitJob(newJob))
+                        return;
+
+                    if (state.LastRestorationAttemptTick >= 0 &&
+                        restorationTick - state.LastRestorationAttemptTick < 600)
+                    {
+                        // A failed Wear causes RimWorld to start an error-recovery
+                        // job immediately. Replanning here used to replace that
+                        // recovery with the same Wear hundreds of times in one
+                        // tick. Drop stale continuations and yield until the
+                        // normal restoration retry window has elapsed.
+                        __instance.ClearQueuedJobs(false);
+                        ReplaceWithBriefWait(pawn, ref newJob, ref jobGiver, ref tag);
+                        return;
+                    }
+
+                    List<Job> pendingRestorationJobs = RestorationPlanner.BuildJobs(
+                        pawn, state, activeRule, out bool hasUnavailableSavedApparel);
+                    if (pendingRestorationJobs.Count > 0)
+                    {
+                        state.LastRestorationAttemptTick = restorationTick;
+                        state.UnavailableRestorationAttempts = hasUnavailableSavedApparel
+                            ? state.UnavailableRestorationAttempts + 1
+                            : 0;
+                        QueueRestorationJobs(
+                            __instance, ref newJob, ref jobGiver, ref tag, pendingRestorationJobs);
+                        return;
+                    }
+
+                    if (hasUnavailableSavedApparel)
+                    {
+                        state.LastRestorationAttemptTick = restorationTick;
+                        state.UnavailableRestorationAttempts++;
+                        __instance.ClearQueuedJobs(false);
+                        ReplaceWithBriefWait(pawn, ref newJob, ref jobGiver, ref tag);
+                        return;
+                    }
+
+                    __instance.ClearQueuedJobs(false);
+                    component.EndIntervention(pawn);
+                    ReplaceWithBriefWait(pawn, ref newJob, ref jobGiver, ref tag);
+                    return;
+                }
+
+                bool targetsActiveWorkArea = RuleEvaluator.MatchesRule(pawn, newJob, activeRule);
+                // Wait/Goto and similar connective jobs can inherit a cell inside
+                // the work area after the real task finishes. They still need to
+                // be permitted while a pawn is moving through the transition,
+                // but they are not fresh work and must not reset or indefinitely
+                // hold open the task buffer.
+                bool startsMeaningfulWorkInArea = targetsActiveWorkArea &&
+                    IsBufferableJob(newJob) && newJob.workGiverDef != null;
+                bool matchesActiveRule = startsMeaningfulWorkInArea ||
+                    PausedAreaWorkFilter.MatchesPermittedHaulingRule(pawn, newJob, activeRule) ||
+                    PausedAreaWorkFilter.MatchesProtectedTransitRule(pawn, newJob, activeRule);
+                // Only actual work targeting the configured area starts a fresh
+                // work session. A connective route that merely crosses the area
+                // still requires PPE, but must not erase already-used buffer
+                // tasks or a pawn can retain work gear indefinitely.
+                if (startsMeaningfulWorkInArea)
+                {
+                    if (Prefs.DevMode && state.BufferedTasksCompleted > 0)
+                        Log.Message($"[Automatic Apparel] {pawn.LabelShortCap}: task buffer reset by {newJob.def.defName} in '{activeRule?.Name}'.");
+                    state.BufferedTasksCompleted = 0;
+                    state.LastBufferedJobLoadId = -1;
+                }
+                bool shouldLeaveRule = state.RecallRequested || !matchesActiveRule;
+                if (shouldLeaveRule && state.Transition == ApparelTransition.Preparing &&
+                    !state.RecallRequested)
                     return;
 
-                if (!matchesActiveRule && state.Transition != ApparelTransition.Preparing)
+                if (shouldLeaveRule && !state.RecallRequested &&
+                    state.Transition == ApparelTransition.Active &&
+                    activeRule != null && activeRule.Enabled && !activeRule.WorkAreaPaused &&
+                    activeRule.ReturnTaskBuffer > state.BufferedTasksCompleted &&
+                    !RequiresImmediateRestoration(newJob) &&
+                    (newJob.workGiverDef == null ||
+                     RuleEvaluator.MatchingRule(pawn, newJob) == null))
+                {
+                    // Movement and brief wait jobs are connective AI steps, not
+                    // meaningful tasks. Let them pass without consuming the
+                    // buffer or causing an outfit swap before the real job starts.
+                    if (IsBufferableJob(newJob) &&
+                        newJob.loadID != state.LastBufferedJobLoadId)
+                    {
+                        state.BufferedTasksCompleted++;
+                        state.LastBufferedJobLoadId = newJob.loadID;
+                        if (Prefs.DevMode)
+                            Log.Message($"[Automatic Apparel] {pawn.LabelShortCap}: task buffer {state.BufferedTasksCompleted}/{activeRule.ReturnTaskBuffer} used by {newJob.def.defName}.");
+                    }
+                    return;
+                }
+
+                if (shouldLeaveRule)
                 {
                     if (activeRule?.ChangingArea != null &&
                         !PawnInsideArea(pawn, activeRule.ChangingArea) &&
                         TryFindChangingCell(pawn, activeRule.ChangingArea, out IntVec3 changingCell))
                     {
-                        state.Transition = ApparelTransition.ReturningToChangingArea;
-                        var returnJobs = new List<Job>
+                        int returnTick = Find.TickManager?.TicksGame ?? 0;
+                        if (state.LastChangingAreaReturnAttemptTick >= 0 &&
+                            returnTick - state.LastChangingAreaReturnAttemptTick < 30)
                         {
-                            JobMaker.MakeJob(JobDefOf.Goto, changingCell)
-                        };
-                        QueueBeforeCurrent(__instance, ref newJob, ref jobGiver, ref tag, returnJobs);
+                            // A failed or instantly completed Goto can cause the
+                            // interrupted candidate to be reconsidered repeatedly
+                            // in one tick. Yield briefly instead of recreating the
+                            // same locker-room return until RimWorld's safety cap.
+                            __instance.ClearQueuedJobs(false);
+                            ReplaceWithBriefWait(pawn, ref newJob, ref jobGiver, ref tag);
+                            return;
+                        }
+
+                        state.Transition = ApparelTransition.ReturningToChangingArea;
+                        state.LastChangingAreaReturnAttemptTick = returnTick;
+
+                        // Recall invalidates the job chosen before the request.
+                        // Do not preserve it behind the Goto: if the Goto ends
+                        // immediately, that stale job can restart and recursively
+                        // create hundreds of identical return jobs in one tick.
+                        __instance.ClearQueuedJobs(false);
+                        newJob = JobMaker.MakeJob(JobDefOf.Goto, changingCell);
+                        jobGiver = null;
+                        tag = null;
                         return;
                     }
 
                     int currentTick = Find.TickManager?.TicksGame ?? 0;
                     if (state.Transition == ApparelTransition.Restoring &&
                         state.LastRestorationAttemptTick >= 0 &&
-                        currentTick - state.LastRestorationAttemptTick < 60)
+                        currentTick - state.LastRestorationAttemptTick < 600)
                     {
-                        __instance.ClearQueuedJobs(false);
-                        ReplaceWithBriefWait(ref newJob, ref jobGiver, ref tag);
+                        // A restoration job can fail transiently because an item
+                        // is reserved, inside storage, or its path is changing.
+                        // Do not convert every newly selected job into Wait while
+                        // cooling down; let the pawn perform safe unrelated work
+                        // and retry restoration after ten in-game seconds.
                         return;
                     }
 
@@ -135,12 +276,22 @@ namespace AutomaticApparel.Patches
                         state.LastRestorationAttemptTick = currentTick;
                         state.UnavailableRestorationAttempts++;
                         __instance.ClearQueuedJobs(false);
-                        ReplaceWithBriefWait(ref newJob, ref jobGiver, ref tag);
+                        ReplaceWithBriefWait(pawn, ref newJob, ref jobGiver, ref tag);
                         return;
                     }
 
                     __instance.ClearQueuedJobs(false);
                     component.EndIntervention(pawn);
+
+                    // The candidate job was selected before recall/restoration.
+                    // Recheck the paused area after clearing the apparel state;
+                    // otherwise that stale job can start in the same StartJob
+                    // call and bypass the normal work-giver pause filters.
+                    if (PausedAreaWorkFilter.ShouldRejectPausedAreaJob(pawn, newJob))
+                    {
+                        ReplaceWithBriefWait(pawn, ref newJob, ref jobGiver, ref tag);
+                        return;
+                    }
                 }
             }
 
@@ -150,7 +301,9 @@ namespace AutomaticApparel.Patches
                 return;
             }
 
-            var rule = RuleEvaluator.MatchingRule(pawn, newJob);
+            var rule = RuleEvaluator.MatchingRule(pawn, newJob) ??
+                PausedAreaWorkFilter.MatchingPermittedHaulingRule(pawn, newJob) ??
+                PausedAreaWorkFilter.MatchingProtectedTransitRule(pawn, newJob);
             if (rule == null)
                 return;
 
@@ -247,6 +400,15 @@ namespace AutomaticApparel.Patches
                    AutomaticApparelGameComponent.Current?.IsManagedApparel(apparel) == true;
         }
 
+        private static bool IsFriendlyGuest(Pawn pawn)
+        {
+            return pawn?.guest != null &&
+                   !pawn.guest.IsPrisoner &&
+                   pawn.Faction != null &&
+                   pawn.Faction != Faction.OfPlayer &&
+                   !pawn.Faction.HostileTo(Faction.OfPlayer);
+        }
+
         private static bool IsAllowedTransitionWear(PawnApparelState state, Apparel apparel)
         {
             if (state == null || apparel == null)
@@ -265,12 +427,56 @@ namespace AutomaticApparel.Patches
             }
         }
 
+        private static bool IsBufferableJob(Job job)
+        {
+            if (job?.def == null)
+                return false;
+
+            string defName = job.def.defName ?? string.Empty;
+            return !defName.StartsWith("Wait", StringComparison.OrdinalIgnoreCase) &&
+                   !defName.StartsWith("Goto", StringComparison.OrdinalIgnoreCase) &&
+                   !string.Equals(defName, "TakeInventory", StringComparison.OrdinalIgnoreCase) &&
+                   job.def != JobDefOf.Wait &&
+                   job.def != JobDefOf.Goto &&
+                   job.def != JobDefOf.Wear &&
+                   job.def != JobDefOf.RemoveApparel;
+        }
+
+        private static bool IsRecoveryWaitJob(Job job)
+        {
+            string defName = job?.def?.defName ?? string.Empty;
+            return job?.def == JobDefOf.Wait ||
+                   job?.def == JobDefOf.Wait_Wander ||
+                   defName.StartsWith("Wait", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool RequiresImmediateRestoration(Job job)
+        {
+            if (job?.def == null)
+                return false;
+
+            // Sleeping is a long-lived state rather than a short task between
+            // work-area jobs. Never spend a task-buffer slot on it: restore the
+            // pawn's saved clothing before they settle into bed.
+            string defName = job.def.defName ?? string.Empty;
+            return job.def == JobDefOf.LayDown ||
+                   string.Equals(defName, "LayDown", StringComparison.OrdinalIgnoreCase) ||
+                   defName.IndexOf("GotoBed", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static void ReplaceWithBriefWait(
+            Pawn pawn,
             ref Job newJob,
             ref ThinkNode jobGiver,
             ref JobTag? tag)
         {
-            Job waitJob = JobMaker.MakeJob(JobDefOf.Wait);
+            // Some StartJob callers immediately inspect targetA while deciding
+            // whether to append an opportunistic haul. A targetless replacement
+            // can send null into Fogged(Thing); targeting the pawn makes this a
+            // complete, harmless wait job for both vanilla and modded callers.
+            Job waitJob = pawn != null
+                ? JobMaker.MakeJob(JobDefOf.Wait, pawn)
+                : JobMaker.MakeJob(JobDefOf.Wait);
             waitJob.expiryInterval = 30;
             newJob = waitJob;
             jobGiver = null;

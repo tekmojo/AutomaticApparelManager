@@ -49,6 +49,13 @@ namespace AutomaticApparel.Patches
                 return;
             }
 
+            // Apparel required by an enabled rule is shared work gear. A
+            // particular item can still carry an older saved-owner record
+            // after being removed from a pawn, but that record must not stop
+            // colony haulers from returning the loose item to locker storage.
+            if (AutomaticApparel.Storage.AutomaticApparelClassifier.Matches(apparel.def))
+                return;
+
             Pawn owner = component.SavedPawnFor(apparel);
             if (owner == null || owner == pawn)
                 return;
