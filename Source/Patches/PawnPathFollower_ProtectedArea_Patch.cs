@@ -38,13 +38,14 @@ namespace AutomaticOutfitManager.Patches
 
             Job currentJob = pawn.jobs.curJob;
             PawnApparelState state = AutomaticOutfitManagerGameComponent.Current?.StateFor(pawn);
+            bool essentialPersonalJob =
+                PausedAreaWorkFilter.IsEssentialPersonalJob(currentJob);
 
-            // A pause recall can legitimately route a pawn through the protected
-            // work area to reach its configured changing area and exact saved
-            // apparel. The StartJob patch has already assigned these transition
-            // jobs, so allow only the recorded Goto/apparel operations rather
-            // than broadly exempting every pawn with RecallRequested set.
-            if (IsManagedRecallTransition(pawn, currentJob, state))
+            // Preparation and recall can legitimately route a pawn through the
+            // protected area to reach assigned work or saved apparel. StartJob
+            // has already recorded these exact transition targets, so exempt
+            // only those operations rather than broadly allowing stateful pawns.
+            if (IsManagedApparelTransition(pawn, currentJob, state))
                 return true;
 
             IntVec3 nextCell = NextCellField(__instance);
@@ -61,9 +62,20 @@ namespace AutomaticOutfitManager.Patches
                         candidate.Area?.Map != pawn.Map || !candidate.Area[nextCell])
                         continue;
 
-                    bool blocked = candidate.WorkAreaPaused
-                        ? !PausedAreaWorkFilter.JobMayEnterPausedRule(pawn, currentJob, candidate)
-                        : RuleEvaluator.HasMissingRequiredApparel(pawn, candidate);
+                    // Do not trap a pawn who is already inside this area. Once
+                    // it steps outside, the same job may not re-enter without
+                    // the required apparel and will be replanned safely.
+                    if (essentialPersonalJob && candidate.Area[pawn.Position])
+                        continue;
+
+                    // Pausing a rule stops its work; it does not make sleeping
+                    // transit exempt from the area's protective equipment.
+                    bool blocked = essentialPersonalJob
+                        ? RuleEvaluator.HasMissingRequiredApparel(pawn, candidate)
+                        : candidate.WorkAreaPaused
+                            ? !PausedAreaWorkFilter.JobMayEnterPausedRule(
+                                pawn, currentJob, candidate)
+                            : RuleEvaluator.HasMissingRequiredApparel(pawn, candidate);
                     if (blocked)
                     {
                         rule = candidate;
@@ -109,14 +121,28 @@ namespace AutomaticOutfitManager.Patches
             return false;
         }
 
-        private static bool IsManagedRecallTransition(
+        private static bool IsManagedApparelTransition(
             Pawn pawn, Job currentJob, PawnApparelState state)
         {
-            if (pawn?.Map == null || currentJob?.def == null ||
-                state?.RecallRequested != true)
+            if (pawn?.Map == null || currentJob?.def == null || state == null)
             {
                 return false;
             }
+
+            // A preparation Wear job is the narrowly assigned operation that
+            // resolves the missing-gear condition. Blocking it at the boundary
+            // can create a circular need-gear-to-reach-gear retry and repeatedly
+            // enqueue the same intercepted work. Exempt only the exact apparel
+            // recorded for this pawn's current transition.
+            if (state.Transition == ApparelTransition.Preparing &&
+                currentJob.def == JobDefOf.Wear &&
+                currentJob.targetA.Thing is Apparel workApparel)
+            {
+                return state.ManagedApparel?.Contains(workApparel) == true;
+            }
+
+            if (state.RecallRequested != true)
+                return false;
 
             if (state.Transition == ApparelTransition.ReturningToChangingArea &&
                 currentJob.def == JobDefOf.Goto)

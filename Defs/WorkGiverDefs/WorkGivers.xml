@@ -2,7 +2,7 @@
 <Defs>
   <WorkGiverDef>
     <defName>AutomaticOutfitManager_LockerRestock</defName>
-    <label>restock AutomaticOutfitManager locker</label>
+    <label>restock Automatic Outfit Manager locker</label>
     <giverClass>AutomaticOutfitManager.Storage.WorkGiver_LockerRestock</giverClass>
     <workType>Hauling</workType>
     <verb>restock</verb>

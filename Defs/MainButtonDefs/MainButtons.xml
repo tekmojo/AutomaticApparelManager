@@ -2,7 +2,7 @@
 <Defs>
   <MainButtonDef>
     <defName>AutomaticOutfitManager_MainButton</defName>
-    <label>AutomaticOutfitManager</label>
+    <label>Automatic Outfit Manager</label>
     <description>Configure area-based outfits, locker rooms, gear availability, worker status, and pause/resume controls.</description>
     <tabWindowClass>AutomaticOutfitManager.UI.MainRulesWindow</tabWindowClass>
     <order>47</order>

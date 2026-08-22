@@ -35,7 +35,7 @@ namespace AutomaticOutfitManager.Patches
                     .Distinct()
                     .ToList();
 
-                managedLabel = "AutomaticOutfitManager: Required work gear";
+                managedLabel = "Automatic Outfit Manager: Required work gear";
                 if (workAreas.Count > 0)
                     managedLabel += $"\nRequired in: {string.Join(", ", workAreas)}";
                 if (lockerAreas.Count > 0)
@@ -45,8 +45,8 @@ namespace AutomaticOutfitManager.Patches
             {
                 string owner = component.SavedOwnerFor(__instance);
                 managedLabel = string.IsNullOrEmpty(owner)
-                    ? "AutomaticOutfitManager: Saved personal gear"
-                    : $"AutomaticOutfitManager: Saved personal gear — {owner}";
+                    ? "Automatic Outfit Manager: Saved personal gear"
+                    : $"Automatic Outfit Manager: Saved personal gear — {owner}";
             }
 
             if (managedLabel == null)

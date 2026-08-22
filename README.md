@@ -54,7 +54,7 @@ The optional locker room controls where restoration occurs and where shared gear
 
 - Required gear in the locker is preferred; suitable map-wide gear is a fallback.
 - After the task buffer is exhausted, the pawn returns there before restoring saved clothing.
-- A hauling work giver returns unworn managed gear to valid locker storage while a rule is paused.
+- A low-priority hauling work giver returns unworn managed gear to valid locker storage whenever its rule is enabled, including during normal active operation and while work is paused.
 - Rules without a locker still change outfits without a dedicated return trip.
 
 ### Task buffer

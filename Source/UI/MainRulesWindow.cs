@@ -56,7 +56,7 @@ namespace AutomaticOutfitManager.UI
             }
 
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 36f), "AutomaticOutfitManager");
+            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 36f), "Automatic Outfit Manager");
             Text.Font = GameFont.Small;
 
             float y = inRect.y + 42f;
@@ -303,7 +303,7 @@ namespace AutomaticOutfitManager.UI
                 rule.ReturnTaskBuffer++;
             GUI.enabled = previousBufferEnabled;
             TooltipHandler.TipRegion(new Rect(bufferLabelRect.x, y, 286f, 28f),
-                "Choose how many ordinary tasks a pawn may start after leaving this work area before returning to the locker room and outfitting saved gear. Immediate returns after the first managed job ends. Pause work bypasses the buffer and starts returning current workers. Work requiring a different AutomaticOutfitManager rule also bypasses this buffer.");
+                "Choose how many ordinary tasks a pawn may start after leaving this work area before returning to the locker room and outfitting saved gear. Immediate returns after the first managed job ends. Pause work bypasses the buffer and starts returning current workers. Work requiring a different Automatic Outfit Manager rule also bypasses this buffer.");
 
             y += 34f;
             Rect gearLabelRect = new Rect(x, y + 4f, 100f, 24f);
@@ -364,12 +364,12 @@ namespace AutomaticOutfitManager.UI
                 for (int workerIndex = 0; workerIndex < workers.Count; workerIndex++)
                 {
                     State.PawnApparelState state = workers[workerIndex];
-                    string fullStatus = PawnAutomaticOutfitStatus.Build(state.Pawn) ?? "AutomaticOutfitManager: Active";
+                    string fullStatus = PawnAutomaticOutfitStatus.Build(state.Pawn) ?? "Automatic Outfit Manager: Active";
                     int detailStart = fullStatus.IndexOf('\n');
                     string headline = detailStart >= 0
                         ? fullStatus.Substring(0, detailStart)
                         : fullStatus;
-                    string shortStatus = headline.Replace("AutomaticOutfitManager: ", "");
+                    string shortStatus = headline.Replace("Automatic Outfit Manager: ", "");
                     string hoverDetails = detailStart >= 0
                         ? fullStatus.Substring(detailStart + 1)
                         : null;
@@ -485,6 +485,17 @@ namespace AutomaticOutfitManager.UI
                     var job = pawn?.CurJob;
                     if (job == null)
                         continue;
+
+                    // A tracked worker's headline already includes its hauling,
+                    // wandering, transit, or buffered activity. Keep the lower
+                    // activity rows for untracked actors so the same pawn is not
+                    // displayed twice and large rules remain compact.
+                    if (TracksRule(
+                            AutomaticOutfitManagerGameComponent.Current?.StateFor(pawn),
+                            rule.Id))
+                    {
+                        continue;
+                    }
 
                     bool hauling = Patches.PausedAreaWorkFilter
                         .IsHaulingActivityForRule(pawn, job, rule);

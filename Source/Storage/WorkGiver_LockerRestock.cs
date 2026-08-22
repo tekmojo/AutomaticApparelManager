@@ -9,8 +9,8 @@ namespace AutomaticOutfitManager.Storage
 {
     /// <summary>
     /// Low-priority, ordinary hauling work that returns loose required gear to
-    /// valid storage in a paused rule's locker room. Because this is a work
-    /// giver, schedules, needs, drafting and forced orders retain priority.
+    /// valid locker storage whenever its rule is enabled. Because this is a
+    /// work giver, schedules, needs, drafting and forced orders retain priority.
     /// </summary>
     public sealed class WorkGiver_LockerRestock : WorkGiver_Scanner
     {
@@ -38,7 +38,7 @@ namespace AutomaticOutfitManager.Storage
 
             AutomaticOutfitManagerGameComponent component = AutomaticOutfitManagerGameComponent.Current;
             var rules = component?.Rules?
-                .Where(rule => rule != null && rule.Enabled && rule.WorkAreaPaused &&
+                .Where(rule => rule != null && rule.Enabled &&
                                rule.ChangingArea?.Map == pawn.Map &&
                                rule.RequiredApparel?.Contains(apparel.def) == true)
                 .ToList();

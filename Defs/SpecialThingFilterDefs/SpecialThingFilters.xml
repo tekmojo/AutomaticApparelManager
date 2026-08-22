@@ -3,7 +3,7 @@
   <SpecialThingFilterDef>
     <defName>AutomaticOutfitManager_AllowManaged</defName>
     <label>allow managed outfit gear</label>
-    <description>Allow apparel required by an enabled AutomaticOutfitManager rule or previously handled as part of a managed outfit change.</description>
+    <description>Allow apparel required by an enabled Automatic Outfit Manager rule or previously handled as part of a managed outfit change.</description>
     <parentCategory>Apparel</parentCategory>
     <allowedByDefault>false</allowedByDefault>
     <saveKey>allowAutomaticOutfitManagerManaged</saveKey>
@@ -13,7 +13,7 @@
   <SpecialThingFilterDef>
     <defName>AutomaticOutfitManager_AllowUnmanaged</defName>
     <label>allow non-managed apparel</label>
-    <description>Allow apparel that is not used or managed by AutomaticOutfitManager.</description>
+    <description>Allow apparel that is not used or managed by Automatic Outfit Manager.</description>
     <parentCategory>Apparel</parentCategory>
     <allowedByDefault>true</allowedByDefault>
     <saveKey>allowAutomaticOutfitManagerUnmanaged</saveKey>

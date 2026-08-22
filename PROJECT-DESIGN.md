@@ -73,7 +73,7 @@ Rules may reference a separate changing area:
 - Restoration returns the pawn there first.
 - Automatic/non-automatic special storage filters separate managed gear from ordinary apparel.
 - Dropped managed gear remains unforbidden.
-- A hauling work giver restocks locker storage while work is paused.
+- A low-priority hauling work giver restocks locker storage whenever its rule is enabled, including during normal active operation and while work is paused.
 
 ### Saved ownership
 

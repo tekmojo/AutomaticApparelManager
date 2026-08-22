@@ -34,6 +34,8 @@ namespace AutomaticOutfitManager.State
         public int LastChangingAreaReturnAttemptTick = -1;
         public int ActiveIdleTicks;
         public Job PendingWorkJob;
+        public bool PendingWorkIsManagedWork;
+        public string LastManagedWorkJobDefName;
         public List<NestedRuleBufferState> NestedRuleBuffers = new List<NestedRuleBufferState>();
         public string LastNestedBufferStatus;
 
@@ -71,6 +73,8 @@ namespace AutomaticOutfitManager.State
             Scribe_Values.Look(ref LastChangingAreaReturnAttemptTick, "lastChangingAreaReturnAttemptTick", -1);
             Scribe_Values.Look(ref ActiveIdleTicks, "activeIdleTicks", 0);
             Scribe_Deep.Look(ref PendingWorkJob, "pendingWorkJob");
+            Scribe_Values.Look(ref PendingWorkIsManagedWork, "pendingWorkIsManagedWork", false);
+            Scribe_Values.Look(ref LastManagedWorkJobDefName, "lastManagedWorkJobDefName");
             Scribe_Collections.Look(ref NestedRuleBuffers, "nestedRuleBuffers", LookMode.Deep);
             Scribe_Values.Look(ref LastNestedBufferStatus, "lastNestedBufferStatus");
             OriginalApparel ??= new List<Apparel>();

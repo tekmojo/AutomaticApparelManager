@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AutomaticOutfitManager.Core;
 using AutomaticOutfitManager.Detection;
+using AutomaticOutfitManager.Patches;
 using AutomaticOutfitManager.Rules;
 using AutomaticOutfitManager.State;
 using RimWorld;
@@ -100,7 +101,7 @@ namespace AutomaticOutfitManager.UI
                 ? "Return pending"
                 : TransitionLabel(
                     pawn, state, requiredSessionRules, returnTaskBuffer);
-            string text = $"AutomaticOutfitManager: {transition}";
+            string text = $"Automatic Outfit Manager: {transition}";
             if (currentRules.Count > 1)
                 text += $"\nRules: {string.Join(" → ", currentRules.Select(current => current.Name))}";
             else if (currentRules.Count == 1)
@@ -252,10 +253,16 @@ namespace AutomaticOutfitManager.UI
                         return $"Buffered task {completed} of {maximum}: " +
                                JobActivity(pawn, currentJob);
                     }
-                    if (currentJob?.workGiverDef != null &&
+                    if (IsManagedWorkStatusJob(currentJob, state) &&
                         RuleEvaluator.MatchingRules(pawn, currentJob).Count > 0)
                     {
                         return $"Working: {JobActivity(pawn, currentJob)}";
+                    }
+                    if (currentJob != null && requiredSessionRules.Any(candidate =>
+                            PausedAreaWorkFilter.MatchesProtectedTransitRule(
+                                pawn, currentJob, candidate)))
+                    {
+                        return $"Protected transit: {JobActivity(pawn, currentJob)}";
                     }
                     if (currentJob?.def == JobDefOf.Goto ||
                         pawn?.pather?.Moving == true)
@@ -371,6 +378,25 @@ namespace AutomaticOutfitManager.UI
                    !defName.StartsWith("Goto", System.StringComparison.OrdinalIgnoreCase) &&
                    !defName.StartsWith("Wait", System.StringComparison.OrdinalIgnoreCase) &&
                    defName.IndexOf("Standing", System.StringComparison.OrdinalIgnoreCase) < 0;
+        }
+
+        private static bool IsManagedWorkStatusJob(
+            Job job, PawnApparelState state)
+        {
+            if (job?.def == null || !IsMeaningfulActivity(job))
+                return false;
+
+            bool isPendingContinuation = state?.PendingWorkJob != null &&
+                (ReferenceEquals(job, state.PendingWorkJob) ||
+                 job.loadID == state.PendingWorkJob.loadID) &&
+                state.PendingWorkIsManagedWork;
+            return job.workGiverDef != null ||
+                   job.jobGiver is JobGiver_Work ||
+                   job.playerForced ||
+                   isPendingContinuation ||
+                   (!string.IsNullOrEmpty(state?.LastManagedWorkJobDefName) &&
+                    string.Equals(job.def.defName, state.LastManagedWorkJobDefName,
+                        System.StringComparison.Ordinal));
         }
 
         private static string BufferStatus(
