@@ -25,7 +25,7 @@ if (-not (Test-Path $HarmonyDll)) {
     throw "Harmony was not found. Pass -HarmonyDll with the path to 0Harmony.dll."
 }
 
-Write-Host "Building AutomaticOutfitManager"
+Write-Host "Building Automatic Outfit Manager"
 Write-Host "RimWorld: $RimWorldDir"
 Write-Host "Harmony:  $HarmonyDll"
 

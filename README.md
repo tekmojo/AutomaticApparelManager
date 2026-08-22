@@ -1,6 +1,6 @@
-# AutomaticOutfitManager
+# Automatic Outfit Manager
 
-AutomaticOutfitManager is a RimWorld 1.6 mod for area-based work outfits and personal protective equipment (PPE).
+Automatic Outfit Manager is a RimWorld 1.6 mod for area-based work outfits and personal protective equipment (PPE).
 
 Repository: [github.com/tekmojo/AutomaticOutfitManager](https://github.com/tekmojo/AutomaticOutfitManager)
 
@@ -8,20 +8,20 @@ Create a rule, select a work area, choose the required apparel, and optionally a
 
 The mod uses ordinary RimWorld areas, jobs, apparel, reservations, and storage. It supports vanilla and modded apparel without hard-coded hazard or content-mod integrations.
 
-The package ID and other legacy internal identifiers intentionally remain unchanged so existing saves and mod references stay compatible with earlier releases.
+The compact technical identity is `AutomaticOutfitManager`, including the repository, package, assembly, namespaces, DefNames, serialized keys, filenames, and asset paths. This breaking rebrand does not preserve saves created under the former product identity.
 
 ## Requirements
 
 - RimWorld 1.6
 - Harmony
 
-Dubs Rimatomics inspired the original radiation-PPE scenario, but it is not a dependency. AutomaticOutfitManager does not detect radiation automatically.
+Dubs Rimatomics inspired the original radiation-PPE scenario, but it is not a dependency. Automatic Outfit Manager does not detect radiation automatically.
 
 ## Quick start
 
 1. Create a RimWorld area covering the workspace that needs special clothing.
 2. Optionally create a second area around the changing and storage space.
-3. Open the **AutomaticOutfitManager** main tab.
+3. Open the **Automatic Outfit Manager** main tab.
 4. Select **Add rule**, name it, and choose the **Work area**.
 5. Select an optional **Locker room**.
 6. Use **Choose gear** to add every required apparel item.
@@ -229,6 +229,6 @@ The DLL is written to `1.6\Assemblies\AutomaticOutfitManager.dll`.
 
 ## Install for local testing
 
-Copy the repository folder into RimWorld’s `Mods` directory, enable **Harmony** first, then enable **AutomaticOutfitManager**.
+Copy the repository folder into RimWorld’s `Mods` directory, enable **Harmony** first, then enable **Automatic Outfit Manager**.
 
 See [`PROJECT-DESIGN.md`](PROJECT-DESIGN.md) for implementation scope and future phases.

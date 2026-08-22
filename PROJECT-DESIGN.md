@@ -1,8 +1,8 @@
-# AutomaticOutfitManager — Project Design
+# Automatic Outfit Manager — Project Design
 
 ## Goal
 
-AutomaticOutfitManager provides context-aware RimWorld outfits without hard-coded integrations. A player-defined area and selected apparel can represent radiation PPE, freezer clothing, firefighting equipment, clean-room garments, industrial safety gear, combat armor, or role-play uniforms.
+Automatic Outfit Manager provides context-aware RimWorld outfits without hard-coded integrations. A player-defined area and selected apparel can represent radiation PPE, freezer clothing, firefighting equipment, clean-room garments, industrial safety gear, combat armor, or role-play uniforms.
 
 The mod does not detect hazards. It reacts to jobs, routes, areas, apparel, and player configuration.
 
@@ -17,9 +17,9 @@ The mod does not detect hazards. It reacts to jobs, routes, areas, apparel, and 
 
 ## Product identity and compatibility
 
-The player-facing product name is **AutomaticOutfitManager**. The broader “outfit” name leaves room for future managed equipment such as optional melee or ranged weapon requirements while keeping apparel and PPE as the current implemented scope.
+The player-facing product name is **Automatic Outfit Manager**. The broader “outfit” name leaves room for future managed equipment such as optional melee or ranged weapon requirements while keeping apparel and PPE as the current implemented scope.
 
-The product and repository are fully branded **AutomaticOutfitManager**. The package ID is `tekmojo.automaticoutfitmanager`; the assembly, namespace, Harmony ID, DefNames, serialized keys, source names, and asset paths use the same identity. The rebrand intentionally establishes a clean identity rather than retaining compatibility with saves created under the former product name.
+The product is branded **Automatic Outfit Manager** in human-readable text, while the repository and technical identity use `AutomaticOutfitManager`. The package ID is `tekmojo.automaticoutfitmanager`; the assembly, namespace, Harmony ID, DefNames, serialized keys, source names, and asset paths use the compact technical identity. The rebrand intentionally establishes a clean identity rather than retaining compatibility with saves created under the former product name.
 
 ## Phase 1 — Area-triggered outfitting (implemented)
 
@@ -106,7 +106,7 @@ Hot-path checks use cached field access, non-allocating missing-gear tests, inde
 
 ### User interface
 
-The **AutomaticOutfitManager** main tab provides:
+The **Automatic Outfit Manager** main tab provides:
 
 - Named enabled/disabled rules
 - Work-area and locker-area selection with native hover overlays
