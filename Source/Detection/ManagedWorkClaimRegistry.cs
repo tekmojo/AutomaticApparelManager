@@ -32,6 +32,14 @@ namespace AutomaticOutfitManager.Detection
 
         private static readonly List<Claim> Claims = new List<Claim>();
 
+        public static void ResetForLoadedGame()
+        {
+            // Claims are intentionally runtime-only. Loading another save in the
+            // same RimWorld process must discard owners and maps from the prior
+            // game before persisted pending jobs rebuild their protection.
+            Claims.Clear();
+        }
+
         public static bool TryClaim(Pawn pawn, Job job, int ticks = 15000)
         {
             List<WorkTarget> targets = TargetsFor(pawn, job);

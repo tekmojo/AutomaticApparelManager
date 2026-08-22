@@ -386,10 +386,53 @@ namespace AutomaticOutfitManager.Core
             {
                 PawnStates.RemoveAll(state => state?.Pawn == null);
                 RebuildRuntimeIndexes();
+                ManagedWorkClaimRegistry.ResetForLoadedGame();
 
                 if (Prefs.DevMode && PawnStates.Count > 0)
                     Log.Message($"[AutomaticOutfitManager] Loaded {PawnStates.Count} pawn apparel snapshot(s).");
             }
+        }
+
+        public override void LoadedGame()
+        {
+            base.LoadedGame();
+            RebuildRuntimeIndexes();
+            int restoredClaims = RebuildPendingWorkClaims();
+            if (Prefs.DevMode && restoredClaims > 0)
+            {
+                Log.Message($"[AutomaticOutfitManager] Restored {restoredClaims} pending work claim(s) after load.");
+            }
+        }
+
+        private int RebuildPendingWorkClaims()
+        {
+            ManagedWorkClaimRegistry.ResetForLoadedGame();
+            int restoredClaims = 0;
+
+            // Re-establish saved claims before any pawn thinker can select the
+            // same bill, frame, ingredient, or queued target after loading. The
+            // oldest intervention wins deterministically if an old save somehow
+            // contains conflicting pending jobs; the normal continuation path
+            // safely cancels any later state that could not reclaim its target.
+            foreach (PawnApparelState state in PawnStates
+                         .Where(state =>
+                             state?.Pawn?.Spawned == true &&
+                             state.PendingWorkJob != null &&
+                             !state.RecallRequested &&
+                             (state.Transition == ApparelTransition.Preparing ||
+                              state.Transition == ApparelTransition.Active))
+                         .OrderBy(state => state.StartedTick)
+                         .ThenBy(state => state.Pawn.thingIDNumber))
+            {
+                if (ManagedWorkClaimRegistry.TryClaim(
+                        state.Pawn, state.PendingWorkJob) &&
+                    ManagedWorkClaimRegistry.HasActiveClaim(state.Pawn))
+                {
+                    restoredClaims++;
+                }
+            }
+
+            return restoredClaims;
         }
 
         public PawnApparelState StateFor(Pawn pawn)

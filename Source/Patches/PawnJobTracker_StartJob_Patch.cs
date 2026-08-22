@@ -398,7 +398,9 @@ namespace AutomaticOutfitManager.Patches
                 if (startsMeaningfulWorkInArea)
                 {
                     state.LastManagedWorkJobDefName = newJob.def.defName;
-                    if (Prefs.DevMode && state.BufferedTasksCompleted > 0)
+                    if (Prefs.DevMode && state.BufferedTasksCompleted > 0 &&
+                        ShouldLogRepeatedDiagnostic(
+                            pawn, $"task-buffer-reset:{activeRule?.Id}"))
                         Log.Message($"[AutomaticOutfitManager] {pawn.LabelShortCap}: task buffer reset by {newJob.def.defName} in '{activeRule?.Name}'.");
                     state.BufferedTasksCompleted = 0;
                     state.LastBufferedJobLoadId = -1;

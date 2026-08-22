@@ -37,7 +37,7 @@ qualifying job
 
 The searchable apparel selector enumerates loaded wearable definitions, so vanilla and modded apparel work without direct integration.
 
-## Phase 2 — State, restoration, access, and monitoring (implemented; under playtesting)
+## Phase 2 — State, restoration, access, and monitoring (complete; playtested)
 
 ### Persistent pawn state
 
@@ -58,7 +58,7 @@ Runtime indexes accelerate frequent pawn-state and managed-item lookups without 
 
 The interrupted `Job` is deep-saved only in pawn apparel state while preparation runs; it is not duplicated in RimWorld’s job queue. Direct player assignments and modded jobs without `workGiverDef` retain managed-work context explicitly so they reset the rule buffer and display as work rather than as follow-up activity.
 
-Every concrete Thing target in A/B/C and both target queues receives one atomic, short-lived claim. Jobs without Thing targets fall back to a cell claim. After preparation, target existence, map membership, real RimWorld reservations, rule applicability, recall/urgency, and claim contention are revalidated. A valid job replaces the next thinker candidate exactly. An invalid or contested continuation is released safely and logs its bounded cancellation reason in developer mode.
+Every concrete Thing target in A/B/C and both target queues receives one atomic, short-lived claim. Jobs without Thing targets fall back to a cell claim. Pending claims are rebuilt deterministically after a save finishes loading, before pawn AI can take the preserved targets. After preparation, target existence, map membership, real RimWorld reservations, rule applicability, recall/urgency, and claim contention are revalidated. A valid job replaces the next thinker candidate exactly. An invalid or contested continuation is released safely and logs its bounded cancellation reason in developer mode.
 
 ### Restoration
 

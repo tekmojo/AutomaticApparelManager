@@ -15,6 +15,8 @@ The compact technical identity is `AutomaticOutfitManager`, including the reposi
 - RimWorld 1.6
 - Harmony
 
+Current development milestone: version `0.2.0`, with Phase 2 complete and playtested in an extended modded colony.
+
 Dubs Rimatomics inspired the original radiation-PPE scenario, but it is not a dependency. Automatic Outfit Manager does not detect radiation automatically.
 
 ## Quick start
@@ -204,7 +206,7 @@ Check its Hauling and Wandering columns. These units obey access permissions but
 
 ### Developer logs
 
-With developer mode enabled, successful interceptions, exact-job resumptions, buffer changes, restoration, and safety redirects are logged. A cancelled continuation includes its reason, such as an invalid target, reservation conflict, pause request, or urgent personal job. Identical guest-access diagnostics are limited to once per pawn per in-game day. Repeated task transitions or `10 jobs in one tick` warnings still indicate a bug worth reporting with the current log and a short video.
+With developer mode enabled, successful interceptions, exact-job resumptions, load-time pending-claim restoration, buffer changes, apparel restoration, and safety redirects are logged. A cancelled continuation includes its reason, such as an invalid target, reservation conflict, pause request, or urgent personal job. Identical guest-access diagnostics are limited to once per pawn per in-game day, and task-buffer reset diagnostics are rate-limited per pawn and rule. Repeated task transitions or `10 jobs in one tick` warnings still indicate a bug worth reporting with the current log and a short video.
 
 ## Current limitations
 

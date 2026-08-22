@@ -10,7 +10,9 @@ namespace AutomaticOutfitManager.Core
         public AutomaticOutfitManagerMod(ModContentPack content) : base(content)
         {
             new Harmony(HarmonyId).PatchAll();
-            Log.Message("[AutomaticOutfitManager] Phase 2 snapshot support loaded.");
+            string version = typeof(AutomaticOutfitManagerMod)
+                .Assembly.GetName().Version?.ToString(3) ?? "unknown";
+            Log.Message($"[AutomaticOutfitManager] {version} loaded (Phase 2 complete).");
         }
     }
 }
