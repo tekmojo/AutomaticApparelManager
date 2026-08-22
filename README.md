@@ -4,7 +4,7 @@ Automatic Outfit Manager is a RimWorld 1.6 mod for area-based work outfits and p
 
 Repository: [github.com/tekmojo/AutomaticOutfitManager](https://github.com/tekmojo/AutomaticOutfitManager)
 
-Create a rule, select a work area, choose the required apparel, and optionally assign a locker room. Eligible colonists equip the gear before qualifying work, keep it for a configurable number of follow-up tasks, then return to the locker room and restore the exact clothing they wore beforehand.
+Create a rule, select a work area, choose the required apparel, and optionally assign a locker room. Eligible humanlike pawns equip the gear before qualifying work, keep it for a configurable number of follow-up tasks, then return to the locker room and restore the exact clothing they wore beforehand.
 
 The mod uses ordinary RimWorld areas, jobs, apparel, reservations, and storage. It supports vanilla and modded apparel without hard-coded hazard or content-mod integrations.
 
@@ -35,16 +35,20 @@ Dubs Rimatomics inspired the original radiation-PPE scenario, but it is not a de
 
 The work area is an existing RimWorld area. A job qualifies when its relevant target or interaction location is inside that area, or when a protected route must cross it.
 
-The mod checks actual movement as well as the initial job. If a route changes, an unequipped colonist is stopped before entering an active protected area and allowed to reconsider after obtaining the required gear.
+The mod checks actual movement as well as the initial job. If a route changes, an eligible unequipped pawn is stopped before entering an active protected area and allowed to reconsider after obtaining the required gear.
+
+The exact job that triggered outfitting is preserved while the pawn changes, including direct player assignments and compatible modded work that does not provide RimWorld’s usual work-giver tag. Its concrete targets are temporarily claimed so another outfitting pawn cannot take the same frame, bill ingredients, haul targets, or similar work. Before resuming, the mod confirms that the job and its reservations are still valid; invalid or contested work is released safely for normal reconsideration.
+
+Sleeping and other essential personal jobs do not keep the work outfit through the task buffer. The pawn restores saved clothing first and, when necessary, routes around active protected areas. If no safe route exists, the personal job waits instead of sending an unequipped pawn through the area.
 
 ### Required gear
 
-The searchable selector includes loaded vanilla and modded apparel. Before qualifying work starts, an eligible colonist:
+The searchable selector includes loaded vanilla and modded apparel. Before qualifying work starts, an eligible humanlike pawn:
 
 1. Saves every personal apparel item currently worn.
 2. Finds reachable, reservable copies of missing required gear.
 3. Uses normal RimWorld `Wear` jobs to equip them.
-4. Resumes the original work after preparation succeeds.
+4. Resumes the exact original job after preparation succeeds and its targets remain valid.
 
 Children and pawns unable to wear the selected apparel are skipped safely. Non-humanlike pawns use access controls but do not participate in outfit changes.
 
@@ -64,7 +68,7 @@ The task buffer controls how many ordinary jobs a pawn may start after leaving q
 - `0 tasks`: restore saved clothing as soon as managed work ends.
 - `1 task`: allow one follow-up job, such as eating or hauling.
 - Higher values reduce repeated changes around busy work areas.
-- Renewed qualifying work inside the area resets the counter.
+- Renewed qualifying work inside the area resets the counter, including direct orders and compatible modded work without a normal work-giver tag.
 - Sleeping bypasses the buffer and begins restoration.
 - Pausing work, drafting, forced orders, and item availability can alter when restoration completes.
 
@@ -192,7 +196,7 @@ Confirm storage inside the locker accepts the item and has **Allow managed outfi
 
 ### A pawn does not change clothing
 
-Confirm the rule is enabled and resumed, the job targets/interacts with the area, the pawn is an undrafted humanlike colonist, and reachable copies of every required type exist.
+Confirm the rule is enabled and resumed, the job targets/interacts with the area, the pawn is an eligible undrafted humanlike colonist, slave, prisoner, or hosted guest, its category is permitted, and reachable copies of every required type exist.
 
 ### A mech, robot, or animal enters
 
@@ -200,7 +204,7 @@ Check its Hauling and Wandering columns. These units obey access permissions but
 
 ### Developer logs
 
-With developer mode enabled, successful interceptions, buffer changes, restoration, and safety redirects are logged. Repeated identical messages or `10 jobs in one tick` warnings indicate a bug worth reporting with the current log and a short video.
+With developer mode enabled, successful interceptions, exact-job resumptions, buffer changes, restoration, and safety redirects are logged. A cancelled continuation includes its reason, such as an invalid target, reservation conflict, pause request, or urgent personal job. Identical guest-access diagnostics are limited to once per pawn per in-game day. Repeated task transitions or `10 jobs in one tick` warnings still indicate a bug worth reporting with the current log and a short video.
 
 ## Current limitations
 

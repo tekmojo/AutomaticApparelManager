@@ -23,7 +23,7 @@ The product is branded **Automatic Outfit Manager** in human-readable text, whil
 
 ## Phase 1 — Area-triggered outfitting (implemented)
 
-An enabled rule references a RimWorld work area and one or more apparel definitions. An undrafted humanlike player colonist qualifies when a job target, interaction position, or protected transit route enters the area.
+An enabled rule references a RimWorld work area and one or more apparel definitions. An eligible undrafted humanlike colonist, slave, prisoner, or hosted guest qualifies when a job target, interaction position, or protected transit route enters the area and its category is permitted.
 
 If required gear is missing:
 
@@ -50,8 +50,15 @@ Each intervention records:
 - Return-request state and safe-interrupt cooldown
 - Task-buffer usage and current buffered job
 - Locker-return and restoration retry timing
+- The exact intercepted work job, whether it carries managed-work context, and the last untagged work definition used for consistent buffer/UI classification
 
 Runtime indexes accelerate frequent pawn-state and managed-item lookups without changing save data.
+
+### Exact work continuation and claims
+
+The interrupted `Job` is deep-saved only in pawn apparel state while preparation runs; it is not duplicated in RimWorld’s job queue. Direct player assignments and modded jobs without `workGiverDef` retain managed-work context explicitly so they reset the rule buffer and display as work rather than as follow-up activity.
+
+Every concrete Thing target in A/B/C and both target queues receives one atomic, short-lived claim. Jobs without Thing targets fall back to a cell claim. After preparation, target existence, map membership, real RimWorld reservations, rule applicability, recall/urgency, and claim contention are revalidated. A valid job replaces the next thinker candidate exactly. An invalid or contested continuation is released safely and logs its bounded cancellation reason in developer mode.
 
 ### Restoration
 
@@ -61,7 +68,7 @@ Destroyed references are skipped. Temporarily unavailable items report their sta
 
 ### Task buffer
 
-Each rule allows 0–20 ordinary follow-up jobs before restoration. A slot is reserved when a new bufferable job starts. Renewed qualifying work resets usage, while sleeping begins restoration immediately. The worker UI names the active buffered job and count.
+Each rule allows 0–20 ordinary follow-up jobs before restoration. A slot is reserved when a new bufferable job starts. Renewed qualifying work resets usage, including player-assigned and modded work that lacks a normal work-giver tag, while sleeping begins restoration immediately. The worker UI names the active buffered job and count and uses the same retained work context as the transition logic.
 
 Future work may track successful job completion separately from job start and roll back interrupted slots.
 
@@ -100,7 +107,7 @@ Restrictions evaluate targets and relevant routes. Units inside receive safe exi
 
 ### Path safety
 
-Incoming jobs are evaluated before start, and actual next path cells are checked for eligible humanlike colonists. This catches route changes caused by doors, congestion, reservations, or modded pathing.
+Incoming jobs are evaluated before start, and actual next path cells are checked for eligible humanlike pawns. This catches route changes caused by doors, congestion, reservations, or modded pathing. Essential personal jobs restore saved clothing first, then use a safe detour around protected areas when one exists; an unavailable detour yields through a bounded retry rather than crossing without required gear.
 
 Hot-path checks use cached field access, non-allocating missing-gear tests, indexed state, and a single periodic pawn traversal.
 
@@ -125,8 +132,9 @@ The **Automatic Outfit Manager** main tab provides:
 - Drafted and forced behavior takes priority where practical.
 - Sleeping is restored around rather than treated as an ordinary buffered task.
 - A missing item can delay restoration but cannot cause unbounded retries.
+- A lost, destroyed, recalled, urgent, reserved, or contested continuation falls back to normal job selection with a specific developer-mode reason.
 - Multiple enabled rules can coexist, but overlapping conflicting rules have no configurable priority yet.
-- Debug logging is tied to RimWorld developer mode.
+- Debug logging is tied to RimWorld developer mode. Repeated guest diagnostics use a one-day per-pawn/category interval; colony diagnostics retain the shorter stabilization interval.
 
 ## Phase 3 — Rule engine (planned)
 
