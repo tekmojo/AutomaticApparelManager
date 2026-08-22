@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
   <WorkGiverDef>
-    <defName>AutomaticApparel_LockerRestock</defName>
-    <label>restock automatic apparel locker</label>
-    <giverClass>AutomaticApparel.Storage.WorkGiver_LockerRestock</giverClass>
+    <defName>AutomaticOutfitManager_LockerRestock</defName>
+    <label>restock AutomaticOutfitManager locker</label>
+    <giverClass>AutomaticOutfitManager.Storage.WorkGiver_LockerRestock</giverClass>
     <workType>Hauling</workType>
     <verb>restock</verb>
     <gerund>restocking</gerund>

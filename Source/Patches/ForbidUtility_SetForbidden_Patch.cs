@@ -1,10 +1,10 @@
-using AutomaticApparel.Core;
-using AutomaticApparel.Storage;
+using AutomaticOutfitManager.Core;
+using AutomaticOutfitManager.Storage;
 using HarmonyLib;
 using RimWorld;
 using Verse;
 
-namespace AutomaticApparel.Patches
+namespace AutomaticOutfitManager.Patches
 {
     [HarmonyPatch(typeof(ForbidUtility), nameof(ForbidUtility.SetForbidden),
         typeof(Thing), typeof(bool), typeof(bool))]
@@ -15,9 +15,9 @@ namespace AutomaticApparel.Patches
             if (!value || !(t is Apparel apparel))
                 return;
 
-            AutomaticApparelGameComponent component = AutomaticApparelGameComponent.Current;
+            AutomaticOutfitManagerGameComponent component = AutomaticOutfitManagerGameComponent.Current;
             if (component?.IsTrackedApparel(apparel) != true &&
-                !AutomaticApparelClassifier.Matches(apparel))
+                !ManagedApparelClassifier.Matches(apparel))
                 return;
 
             if (apparel.Spawned && apparel.IsForbidden(Faction.OfPlayer))
@@ -35,7 +35,7 @@ namespace AutomaticApparel.Patches
             if (!__result || faction != Faction.OfPlayer || !(t is Apparel apparel))
                 return;
 
-            if (AutomaticApparelClassifier.Matches(apparel))
+            if (ManagedApparelClassifier.Matches(apparel))
                 __result = false;
         }
     }

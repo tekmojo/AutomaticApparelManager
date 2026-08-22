@@ -1,11 +1,11 @@
 using System;
 using System.Reflection;
-using AutomaticApparel.Core;
+using AutomaticOutfitManager.Core;
 using HarmonyLib;
 using RimWorld;
 using Verse;
 
-namespace AutomaticApparel.Patches
+namespace AutomaticOutfitManager.Patches
 {
     [HarmonyPatch]
     public static class PawnApparelTracker_TryDrop_Patch
@@ -30,7 +30,7 @@ namespace AutomaticApparel.Patches
                 return;
 
             Pawn pawn = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
-            AutomaticApparelGameComponent component = AutomaticApparelGameComponent.Current;
+            AutomaticOutfitManagerGameComponent component = AutomaticOutfitManagerGameComponent.Current;
             if (component?.StateFor(pawn) != null)
                 forbid = false;
         }
@@ -38,7 +38,7 @@ namespace AutomaticApparel.Patches
         public static void Postfix(Pawn_ApparelTracker __instance, Apparel ap, Apparel resultingAp)
         {
             Pawn pawn = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
-            if (AutomaticApparelGameComponent.Current?.StateFor(pawn) == null)
+            if (AutomaticOutfitManagerGameComponent.Current?.StateFor(pawn) == null)
                 return;
 
             Apparel dropped = resultingAp ?? ap;

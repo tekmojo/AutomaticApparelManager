@@ -1,15 +1,15 @@
 using System.Collections.Generic;
 using System.Linq;
-using AutomaticApparel.Detection;
-using AutomaticApparel.Rules;
-using AutomaticApparel.State;
+using AutomaticOutfitManager.Detection;
+using AutomaticOutfitManager.Rules;
+using AutomaticOutfitManager.State;
 using RimWorld;
 using Verse;
 using Verse.AI;
 
-namespace AutomaticApparel.Core
+namespace AutomaticOutfitManager.Core
 {
-    public sealed class AutomaticApparelGameComponent : GameComponent
+    public sealed class AutomaticOutfitManagerGameComponent : GameComponent
     {
         public List<ApparelRule> Rules = new List<ApparelRule>();
         public List<PawnApparelState> PawnStates = new List<PawnApparelState>();
@@ -25,7 +25,7 @@ namespace AutomaticApparel.Core
         private int indexedManagedApparelCount = -1;
         private int spawnedPawnIndexTick = -1;
 
-        public AutomaticApparelGameComponent(Game game)
+        public AutomaticOutfitManagerGameComponent(Game game)
         {
         }
 
@@ -39,7 +39,7 @@ namespace AutomaticApparel.Core
 
             ProcessPendingRecallInterrupts(currentTick);
             EnforceRuntimePawnRules(currentTick);
-            RecoverIdleApparelWorkers();
+            RecoverIdleApparelWorkers(currentTick);
         }
 
         public void RequestRecall(PawnApparelState state)
@@ -48,6 +48,18 @@ namespace AutomaticApparel.Core
                 return;
 
             state.RecallRequested = true;
+
+            // Returning/restoring is already the recall operation. Re-arming
+            // the forced interrupt here can cancel the exact Goto or Wear job
+            // that must finish the recall, leaving the pawn in an idle rebuild
+            // loop when overlapping rules are paused in quick succession.
+            if (state.Transition == ApparelTransition.ReturningToChangingArea ||
+                state.Transition == ApparelTransition.Restoring)
+            {
+                state.RecallInterruptPending = false;
+                return;
+            }
+
             state.RecallInterruptPending = true;
         }
 
@@ -62,6 +74,21 @@ namespace AutomaticApparel.Core
                     continue;
                 }
 
+                if (state.Transition == ApparelTransition.ReturningToChangingArea ||
+                    state.Transition == ApparelTransition.Restoring)
+                {
+                    state.RecallInterruptPending = false;
+                    continue;
+                }
+
+                // Do not force-interrupt a wear/remove toil after it has begun.
+                // Apparel drivers can temporarily remove conflicting layers
+                // before the replacement is committed. Let this exact assigned
+                // step finish; the next StartJob call cancels any remaining
+                // preparation and enters the normal recall path.
+                if (IsAssignedApparelTransitionJob(state, pawn.jobs.curJob))
+                    continue;
+
                 // A broken third-party job can throw while RimWorld selects the
                 // replacement job. Keep that failure out of the UI and avoid a
                 // retry every tick; a later attempt can recover after the stale
@@ -73,12 +100,34 @@ namespace AutomaticApparel.Core
                 }
 
                 state.LastRecallInterruptAttemptTick = currentTick;
-                if (pawn.jobs.curJob == null || TryJobTransition(pawn, currentTick, "recall", () =>
+                if (pawn.jobs.curJob == null || TryJobTransition(pawn, currentTick, "return request", () =>
                     pawn.jobs.EndCurrentJob(JobCondition.InterruptForced, true)))
                 {
                     state.RecallInterruptPending = false;
                 }
             }
+        }
+
+        private static bool IsAssignedApparelTransitionJob(
+            PawnApparelState state, Job job)
+        {
+            if (state == null || job?.targetA.Thing is not RimWorld.Apparel apparel)
+                return false;
+
+            if (job.def == JobDefOf.Wear)
+            {
+                return state.Transition == ApparelTransition.Restoring
+                    ? state.OriginalApparel?.Contains(apparel) == true
+                    : state.ManagedApparel?.Contains(apparel) == true;
+            }
+
+            if (job.def == JobDefOf.RemoveApparel)
+                return state.ManagedApparel?.Contains(apparel) == true;
+
+            return state.Transition == ApparelTransition.Restoring &&
+                   (job.def == JobDefOf.HaulToCell ||
+                    job.def == JobDefOf.HaulToContainer) &&
+                   state.ManagedApparel?.Contains(apparel) == true;
         }
 
         private void EnforceRuntimePawnRules(int currentTick)
@@ -162,7 +211,7 @@ namespace AutomaticApparel.Core
 
             foreach (RimWorld.Apparel apparel in pawn.apparel.WornApparel.ToList())
             {
-                if (AutomaticApparel.Storage.AutomaticApparelClassifier.Matches(apparel.def) ||
+                if (AutomaticOutfitManager.Storage.ManagedApparelClassifier.Matches(apparel.def) ||
                     !IsSavedForOtherPawn(apparel, pawn))
                     continue;
 
@@ -189,17 +238,70 @@ namespace AutomaticApparel.Core
             catch (System.Exception exception)
             {
                 jobTransitionFailureTicks[pawn] = currentTick;
-                Log.Warning($"[Automatic Apparel] {pawn.LabelShortCap}: {context} job transition failed; retrying later. {exception.GetType().Name}: {exception.Message}");
+                Log.Warning($"[AutomaticOutfitManager] {pawn.LabelShortCap}: {context} job transition failed; retrying later. {exception.GetType().Name}: {exception.Message}");
                 return false;
             }
         }
 
-        private void RecoverIdleApparelWorkers()
+        private void RecoverIdleApparelWorkers(int currentTick)
         {
             foreach (PawnApparelState state in PawnStates.ToList())
             {
                 Pawn pawn = state?.Pawn;
                 ApparelRule rule = RuleById(state?.ActiveRuleId);
+                if (pawn?.Spawned == true && !pawn.Drafted &&
+                    state.Transition == ApparelTransition.Restoring)
+                {
+                    Job restorationJob = pawn.jobs?.curJob;
+                    if (!IsIdleRecoveryJob(pawn, restorationJob))
+                    {
+                        state.ActiveIdleTicks = 0;
+                        continue;
+                    }
+
+                    RestorationPlanner.TryMakeHeldOriginalsAccessible(pawn, state);
+                    List<Job> remainingJobs = RestorationPlanner.BuildJobs(
+                        pawn, state, rule, out bool hasUnavailableSavedApparel);
+                    if (remainingJobs.Count == 0 && !hasUnavailableSavedApparel)
+                    {
+                        state.ActiveIdleTicks = 0;
+                        EndIntervention(pawn);
+                        continue;
+                    }
+
+                    state.ActiveIdleTicks += 30;
+                    int idleGrace = hasUnavailableSavedApparel ? 240 : 120;
+                    int retryCooldown = hasUnavailableSavedApparel ? 600 : 120;
+                    bool retryReady = state.LastRestorationAttemptTick < 0 ||
+                        currentTick - state.LastRestorationAttemptTick >= retryCooldown;
+                    if (state.ActiveIdleTicks < idleGrace || !retryReady)
+                        continue;
+
+                    state.ActiveIdleTicks = 0;
+                    bool recoveryStarted = TryJobTransition(
+                        pawn, currentTick, "idle restoration recovery", () =>
+                    {
+                        // Ending Standing normally selects another Wait-family
+                        // job, which restoration intentionally ignores to avoid
+                        // retry loops. A same-cell Goto is a harmless non-Wait
+                        // trigger that StartJob must replace with the rebuilt
+                        // restoration queue before it can execute.
+                        // The previous restoration attempt has already passed
+                        // the retry window checked above. Clear its timestamp
+                        // so the StartJob patch does not mistake this deliberate
+                        // recovery trigger for a same-tick failed-Wear retry and
+                        // turn it straight back into another Wait job.
+                        state.LastRestorationAttemptTick = -1;
+                        Job recoveryTrigger = JobMaker.MakeJob(JobDefOf.Goto, pawn.Position);
+                        recoveryTrigger.expiryInterval = 30;
+                        pawn.jobs.StartJob(
+                            recoveryTrigger, JobCondition.InterruptForced, null, false, true);
+                    });
+                    if (recoveryStarted && StateFor(pawn) != null && Prefs.DevMode)
+                        Log.Message($"[AutomaticOutfitManager] {pawn.LabelShortCap}: restoration became idle; rebuilding saved-apparel jobs.");
+                    continue;
+                }
+
                 if (pawn?.Spawned != true || pawn.Drafted ||
                     state.Transition != ApparelTransition.Active ||
                     rule?.Enabled != true || rule.WorkAreaPaused ||
@@ -233,7 +335,7 @@ namespace AutomaticApparel.Core
                 state.ActiveIdleTicks = 0;
                 RequestRecall(state);
                 if (Prefs.DevMode)
-                    Log.Message($"[Automatic Apparel] {pawn.LabelShortCap}: finished work and became idle; returning to locker room.");
+                    Log.Message($"[AutomaticOutfitManager] {pawn.LabelShortCap}: finished work and became idle; returning to locker room.");
             }
         }
 
@@ -261,17 +363,17 @@ namespace AutomaticApparel.Core
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Collections.Look(ref Rules, "automaticApparelRules", LookMode.Deep);
-            Scribe_Collections.Look(ref PawnStates, "automaticApparelPawnStates", LookMode.Deep);
-            Scribe_Collections.Look(ref ManagedApparelIds, "automaticApparelManagedIds", LookMode.Value);
+            Scribe_Collections.Look(ref Rules, "automaticOutfitManagerRules", LookMode.Deep);
+            Scribe_Collections.Look(ref PawnStates, "automaticOutfitManagerPawnStates", LookMode.Deep);
+            Scribe_Collections.Look(ref ManagedApparelIds, "automaticOutfitManagerManagedIds", LookMode.Value);
             Scribe_Collections.Look(
                 ref ManagedApparelOwners,
-                "automaticApparelManagedOwners",
+                "automaticOutfitManagerManagedOwners",
                 LookMode.Value,
                 LookMode.Value);
             Scribe_Collections.Look(
                 ref ManagedApparelOwnerIds,
-                "automaticApparelManagedOwnerIds",
+                "automaticOutfitManagerManagedOwnerIds",
                 LookMode.Value,
                 LookMode.Value);
             Rules ??= new List<ApparelRule>();
@@ -286,7 +388,7 @@ namespace AutomaticApparel.Core
                 RebuildRuntimeIndexes();
 
                 if (Prefs.DevMode && PawnStates.Count > 0)
-                    Log.Message($"[Automatic Apparel] Loaded {PawnStates.Count} pawn apparel snapshot(s).");
+                    Log.Message($"[AutomaticOutfitManager] Loaded {PawnStates.Count} pawn apparel snapshot(s).");
             }
         }
 
@@ -303,14 +405,27 @@ namespace AutomaticApparel.Core
             PawnApparelState state = StateFor(pawn);
             return state != null && apparel != null &&
                    ((state.OriginalApparel?.Contains(apparel) ?? false) ||
-                    (state.AutomaticApparel?.Contains(apparel) ?? false));
+                    (state.ManagedApparel?.Contains(apparel) ?? false));
         }
 
         public bool IsTrackedApparel(RimWorld.Apparel apparel)
         {
             return apparel != null && PawnStates.Any(state => state != null &&
                 ((state.OriginalApparel?.Contains(apparel) ?? false) ||
-                 (state.AutomaticApparel?.Contains(apparel) ?? false)));
+                 (state.ManagedApparel?.Contains(apparel) ?? false)));
+        }
+
+        public bool IsManagedApparelAssignedToOtherPawn(
+            RimWorld.Apparel apparel, Pawn pawn)
+        {
+            if (apparel == null || pawn == null)
+                return false;
+
+            return PawnStates.Any(state =>
+                state?.Pawn != null && state.Pawn != pawn &&
+                (state.ManagedApparel?.Contains(apparel) ?? false) &&
+                (state.Transition == ApparelTransition.Preparing ||
+                 state.Pawn.apparel?.WornApparel.Contains(apparel) == true));
         }
 
         public bool IsManagedApparel(RimWorld.Apparel apparel)
@@ -386,7 +501,7 @@ namespace AutomaticApparel.Core
                 state.OriginalApparel?.Remove(apparel);
 
             if (!IsTrackedApparel(apparel) &&
-                !AutomaticApparel.Storage.AutomaticApparelClassifier.Matches(apparel.def))
+                !AutomaticOutfitManager.Storage.ManagedApparelClassifier.Matches(apparel.def))
             {
                 ManagedApparelIds.Remove(apparelId);
                 managedApparelIdIndex.Remove(apparelId);
@@ -400,7 +515,7 @@ namespace AutomaticApparel.Core
         public ApparelRule RuleById(string ruleId) =>
             Rules.FirstOrDefault(rule => rule != null && rule.Id == ruleId);
 
-        public PawnApparelState BeginIntervention(Pawn pawn, ApparelRule rule, IEnumerable<RimWorld.Apparel> automaticApparel)
+        public PawnApparelState BeginIntervention(Pawn pawn, ApparelRule rule, IEnumerable<RimWorld.Apparel> managedApparel)
         {
             // Access restrictions also cover animals, mechs, and modded robots,
             // but only humanlike pawns with an apparel tracker can participate
@@ -416,15 +531,17 @@ namespace AutomaticApparel.Core
             PawnApparelState state = StateFor(pawn);
             if (state != null)
             {
-                state.AddAutomaticApparel(automaticApparel);
-                RegisterManagedApparel(automaticApparel);
+                state.AddManagedApparel(managedApparel);
+                RegisterManagedApparel(managedApparel);
+                state.Transition = ApparelTransition.Preparing;
+                state.ActiveIdleTicks = 0;
                 return state;
             }
 
             state = PawnApparelState.Capture(pawn, rule);
-            state.AddAutomaticApparel(automaticApparel);
+            state.AddManagedApparel(managedApparel);
             RegisterManagedApparel(state.OriginalApparel, pawn);
-            RegisterManagedApparel(state.AutomaticApparel);
+            RegisterManagedApparel(state.ManagedApparel);
             PawnStates.Add(state);
             pawnStateIndex[pawn] = state;
             indexedPawnStateCount = PawnStates.Count;
@@ -436,7 +553,7 @@ namespace AutomaticApparel.Core
                     : string.Join(", ", state.OriginalApparel
                         .Where(item => item != null)
                         .Select(item => item.LabelCap.ToString()));
-                Log.Message($"[Automatic Apparel] {pawn.LabelShortCap}: captured apparel snapshot for '{rule.Name}': {apparel}.");
+                Log.Message($"[AutomaticOutfitManager] {pawn.LabelShortCap}: captured apparel snapshot for '{rule.Name}': {apparel}.");
             }
 
             return state;
@@ -476,6 +593,7 @@ namespace AutomaticApparel.Core
 
         public void EndIntervention(Pawn pawn)
         {
+            ManagedWorkClaimRegistry.ReleaseAll(pawn);
             PawnApparelState state = StateFor(pawn);
             if (state == null)
                 return;
@@ -484,11 +602,11 @@ namespace AutomaticApparel.Core
             pawnStateIndex.Remove(pawn);
             indexedPawnStateCount = PawnStates.Count;
             if (Prefs.DevMode)
-                Log.Message($"[Automatic Apparel] {pawn.LabelShortCap}: apparel restoration complete; snapshot cleared.");
+                Log.Message($"[AutomaticOutfitManager] {pawn.LabelShortCap}: apparel restoration complete; snapshot cleared.");
         }
 
-        public static AutomaticApparelGameComponent Current =>
-            Verse.Current.Game?.GetComponent<AutomaticApparelGameComponent>();
+        public static AutomaticOutfitManagerGameComponent Current =>
+            Verse.Current.Game?.GetComponent<AutomaticOutfitManagerGameComponent>();
 
         private void EnsureStateIndex()
         {

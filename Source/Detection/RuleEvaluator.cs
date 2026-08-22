@@ -1,27 +1,36 @@
 using System.Collections.Generic;
 using System.Linq;
-using AutomaticApparel.Core;
-using AutomaticApparel.Rules;
+using AutomaticOutfitManager.Core;
+using AutomaticOutfitManager.Rules;
 using RimWorld;
 using Verse;
 using Verse.AI;
 
-namespace AutomaticApparel.Detection
+namespace AutomaticOutfitManager.Detection
 {
     public static class RuleEvaluator
     {
         public static ApparelRule MatchingRule(Pawn pawn, Job job)
         {
-            if (pawn == null || job == null || pawn.Map == null || !pawn.IsColonist ||
-                pawn.RaceProps?.Humanlike != true || pawn.apparel == null || pawn.Drafted)
-                return null;
+            return MatchingRules(pawn, job).FirstOrDefault();
+        }
 
-            var component = AutomaticApparelGameComponent.Current;
+        public static List<ApparelRule> MatchingRules(Pawn pawn, Job job)
+        {
+            if (pawn == null || job == null || pawn.Map == null ||
+                !PawnAccessClassifier.IsApparelEligibleHuman(pawn) || pawn.Drafted)
+                return new List<ApparelRule>();
+
+            var component = AutomaticOutfitManagerGameComponent.Current;
             if (component?.Rules == null)
-                return null;
+                return new List<ApparelRule>();
 
-            return component.Rules.FirstOrDefault(rule =>
-                RuleCanApplyToPawn(pawn, rule) && MatchesRule(pawn, job, rule));
+            // A target may be covered by an outer work area and one or more
+            // nested areas. All of their safety requirements apply. Preserve
+            // rule order so existing saves remain deterministic.
+            return component.Rules
+                .Where(rule => MatchesRule(pawn, job, rule))
+                .ToList();
         }
 
         public static bool MatchesRule(Pawn pawn, Job job, ApparelRule rule)
@@ -29,9 +38,7 @@ namespace AutomaticApparel.Detection
             return pawn != null &&
                    job != null &&
                    pawn.Map != null &&
-                   pawn.IsColonist &&
-                   pawn.RaceProps?.Humanlike == true &&
-                   pawn.apparel != null &&
+                   PawnAccessClassifier.IsApparelEligibleHuman(pawn) &&
                    !pawn.Drafted &&
                    rule != null &&
                    rule.Enabled &&
@@ -124,9 +131,13 @@ namespace AutomaticApparel.Detection
                 if (thing == null || thing.MapHeld != area.Map)
                     return false;
 
-                // Work jobs commonly target a building's anchor cell while the
-                // pawn performs the job from an adjacent interaction cell. Check
-                // both, plus the full footprint for multi-cell workstations.
+                // Work-area membership follows the target and its occupied
+                // footprint. Do not classify a job by every possible adjacent
+                // interaction cell: a frame just outside a nested area can have
+                // one candidate standing cell inside it even when RimWorld
+                // chooses another, producing false nested-rule status and
+                // unnecessary outfitting. Actual entry and transit remain
+                // protected by the path-cell safety patch.
                 if (CellInside(thing.PositionHeld, area))
                     return true;
 
@@ -136,12 +147,8 @@ namespace AutomaticApparel.Detection
                 if (!thing.Spawned || thing.Map != area.Map)
                     return false;
 
-                if (GenAdj.CellsOccupiedBy(thing).Any(cell => CellInside(cell, area)))
-                    return true;
-
-                List<IntVec3> interactionCells = thing.InteractionCells;
-                return interactionCells != null &&
-                       interactionCells.Any(cell => CellInside(cell, area));
+                return GenAdj.CellsOccupiedBy(thing)
+                    .Any(cell => CellInside(cell, area));
             }
 
             return CellInside(target.Cell, area);

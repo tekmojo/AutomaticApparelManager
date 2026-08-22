@@ -2,7 +2,7 @@ using HarmonyLib;
 using Verse;
 using Verse.AI;
 
-namespace AutomaticApparel.Patches
+namespace AutomaticOutfitManager.Patches
 {
     /// <summary>
     /// Prevents malformed spawned things from crashing RimWorld's opportunistic

@@ -1,18 +1,18 @@
 using System.Linq;
-using AutomaticApparel.Core;
+using AutomaticOutfitManager.Core;
 using RimWorld;
 using Verse;
 
-namespace AutomaticApparel.Storage
+namespace AutomaticOutfitManager.Storage
 {
-    public static class AutomaticApparelClassifier
+    public static class ManagedApparelClassifier
     {
         public static bool Matches(ThingDef def)
         {
             if (def?.apparel == null)
                 return false;
 
-            AutomaticApparelGameComponent component = AutomaticApparelGameComponent.Current;
+            AutomaticOutfitManagerGameComponent component = AutomaticOutfitManagerGameComponent.Current;
             return component != null && component.Rules.Any(rule =>
                 rule != null &&
                 rule.Enabled &&
@@ -25,7 +25,7 @@ namespace AutomaticApparel.Storage
             if (!(thing is Apparel apparel))
                 return false;
 
-            AutomaticApparelGameComponent component = AutomaticApparelGameComponent.Current;
+            AutomaticOutfitManagerGameComponent component = AutomaticOutfitManagerGameComponent.Current;
             if (component == null)
                 return false;
 
@@ -38,7 +38,7 @@ namespace AutomaticApparel.Storage
             return component.PawnStates.Any(state =>
                 state != null &&
                 ((state.OriginalApparel?.Contains(apparel) ?? false) ||
-                 (state.AutomaticApparel?.Contains(apparel) ?? false)));
+                 (state.ManagedApparel?.Contains(apparel) ?? false)));
         }
     }
 }

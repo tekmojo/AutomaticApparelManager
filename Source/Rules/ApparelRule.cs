@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Verse;
 
-namespace AutomaticApparel.Rules
+namespace AutomaticOutfitManager.Rules
 {
     public sealed class ApparelRule : IExposable
     {
@@ -12,6 +12,12 @@ namespace AutomaticApparel.Rules
         public bool Enabled = true;
         public bool UiCollapsed;
         public bool WorkAreaPaused;
+        public bool AllowColonistWork = true;
+        public bool AllowRobotWork = true;
+        public bool AllowAnimalWork = true;
+        public bool AllowGuestWork = true;
+        public bool AllowSlaveWork = true;
+        public bool AllowPrisonerWork;
         public bool AllowColonistHauling = true;
         public bool AllowRobotHauling = true;
         public bool AllowAnimalHauling = true;
@@ -37,6 +43,12 @@ namespace AutomaticApparel.Rules
             Scribe_Values.Look(ref Enabled, "enabled", true);
             Scribe_Values.Look(ref UiCollapsed, "uiCollapsed", false);
             Scribe_Values.Look(ref WorkAreaPaused, "workAreaPaused", false);
+            Scribe_Values.Look(ref AllowColonistWork, "allowColonistWork", true);
+            Scribe_Values.Look(ref AllowRobotWork, "allowRobotWork", true);
+            Scribe_Values.Look(ref AllowAnimalWork, "allowAnimalWork", true);
+            Scribe_Values.Look(ref AllowGuestWork, "allowGuestWork", true);
+            Scribe_Values.Look(ref AllowSlaveWork, "allowSlaveWork", true);
+            Scribe_Values.Look(ref AllowPrisonerWork, "allowPrisonerWork", false);
             Scribe_Values.Look(ref AllowColonistHauling, "allowColonistHauling", true);
             Scribe_Values.Look(ref AllowRobotHauling, "allowRobotHauling", true);
             Scribe_Values.Look(ref AllowAnimalHauling, "allowAnimalHauling", true);

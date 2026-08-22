@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using System.Linq;
-using AutomaticApparel.Core;
-using AutomaticApparel.Detection;
-using AutomaticApparel.Rules;
+using AutomaticOutfitManager.Core;
+using AutomaticOutfitManager.Detection;
+using AutomaticOutfitManager.Rules;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
-namespace AutomaticApparel.UI
+namespace AutomaticOutfitManager.UI
 {
     public sealed class MainRulesWindow : MainTabWindow
     {
@@ -48,7 +48,7 @@ namespace AutomaticApparel.UI
 
         public override void DoWindowContents(Rect inRect)
         {
-            var component = AutomaticApparelGameComponent.Current;
+            var component = AutomaticOutfitManagerGameComponent.Current;
             if (component == null)
             {
                 Widgets.Label(inRect, "No active game.");
@@ -56,7 +56,7 @@ namespace AutomaticApparel.UI
             }
 
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 36f), "Automatic Apparel Manager");
+            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 36f), "AutomaticOutfitManager");
             Text.Font = GameFont.Small;
 
             float y = inRect.y + 42f;
@@ -67,7 +67,7 @@ namespace AutomaticApparel.UI
             Rect newRuleRect = new Rect(inRect.x, y, 130f, 30f);
             if (Widgets.ButtonText(newRuleRect, "Add rule"))
                 component.Rules.Add(new ApparelRule());
-            TooltipHandler.TipRegion(newRuleRect, "Create a new automatic apparel rule for this save. Examples: radiation work, freezer clothing, firefighting gear, cleanroom apparel, or uniforms.");
+            TooltipHandler.TipRegion(newRuleRect, "Create a new automatic outfit rule for this save. Examples: radiation work, freezer clothing, firefighting gear, cleanroom apparel, or uniforms.");
             Rect manageAreasRect = new Rect(inRect.x + 140f, y, 150f, 30f);
             if (Widgets.ButtonText(manageAreasRect, "Edit map areas"))
                 ShowManageAreas();
@@ -90,7 +90,7 @@ namespace AutomaticApparel.UI
             Widgets.EndScrollView();
         }
 
-        private void DrawRule(ApparelRule rule, int index, Rect rect, AutomaticApparelGameComponent component)
+        private void DrawRule(ApparelRule rule, int index, Rect rect, AutomaticOutfitManagerGameComponent component)
         {
             Widgets.DrawMenuSection(rect);
             float x = rect.x + 10f;
@@ -99,7 +99,7 @@ namespace AutomaticApparel.UI
 
             Rect enabledRect = new Rect(x, y, 90f, 24f);
             Widgets.CheckboxLabeled(enabledRect, "Active", ref rule.Enabled);
-            TooltipHandler.TipRegion(enabledRect, "Turn this rule on or off without deleting its settings. Recall commands do not change this setting. Example: disable a seasonal winter-clothing rule during summer.");
+            TooltipHandler.TipRegion(enabledRect, "Turn this rule on or off without deleting its settings. Pause work does not change this setting. Example: disable a seasonal winter-clothing rule during summer.");
             Rect ruleNameRect = new Rect(x + 100f, y, width - 272f, 26f);
             rule.Name = Widgets.TextField(ruleNameRect, rule.Name ?? "");
             TooltipHandler.TipRegion(ruleNameRect, "Give this rule a recognizable name. Examples: Radiation Lab, Freezer Gear, Fire Crew, Cleanroom, or Guard Uniform.");
@@ -143,15 +143,15 @@ namespace AutomaticApparel.UI
                 bool compactPreviousEnabled = GUI.enabled;
                 GUI.enabled = rule.Area != null;
                 if (Widgets.ButtonText(compactRecallRect,
-                        rule.WorkAreaPaused ? "Resume work" : "Recall all"))
+                        rule.WorkAreaPaused ? "Resume work" : "Pause work"))
                 {
-                    RecallAllOrResume(rule, component);
+                    PauseOrResumeWork(rule, component);
                 }
                 GUI.enabled = compactPreviousEnabled;
                 TooltipHandler.TipRegion(compactRecallRect,
                     rule.WorkAreaPaused
                         ? "Resume ordinary work in this area."
-                        : "Pause ordinary work and recall all current workers to the locker room.");
+                        : "Pause ordinary work in this area. Current workers return to the locker room and restore their saved gear.");
                 return;
             }
 
@@ -195,6 +195,30 @@ namespace AutomaticApparel.UI
             Text.Anchor = previousAnchor;
 
             y += 22f;
+            Rect workAccessLabelRect = new Rect(x, y + 2f, permissionLabelWidth, 24f);
+            Widgets.Label(workAccessLabelRect, "Work:");
+            bool allWork = AllWorkAllowed(rule);
+            bool previousAllWork = allWork;
+            DrawPermissionCheckbox(x, y, permissionLabelWidth, permissionColumnWidth, 0, ref allWork,
+                "Allow or block ordinary assigned work for every listed group.");
+            if (allWork != previousAllWork)
+                SetAllWork(rule, allWork);
+            DrawPermissionCheckbox(x, y, permissionLabelWidth, permissionColumnWidth, 1, ref rule.AllowColonistWork,
+                "Allow colonists to perform ordinary assigned work in this area.");
+            DrawPermissionCheckbox(x, y, permissionLabelWidth, permissionColumnWidth, 2, ref rule.AllowRobotWork,
+                "Allow compatible robots and mechs to perform ordinary assigned work in this area.");
+            DrawPermissionCheckbox(x, y, permissionLabelWidth, permissionColumnWidth, 3, ref rule.AllowAnimalWork,
+                "Allow modded animals with work jobs to perform ordinary assigned work in this area.");
+            DrawPermissionCheckbox(x, y, permissionLabelWidth, permissionColumnWidth, 4, ref rule.AllowGuestWork,
+                "Allow hosted guests, including Hospitality guests, to perform ordinary assigned work in this area.");
+            DrawPermissionCheckbox(x, y, permissionLabelWidth, permissionColumnWidth, 5, ref rule.AllowSlaveWork,
+                "Allow player-owned slaves to perform ordinary assigned work in this area.");
+            DrawPermissionCheckbox(x, y, permissionLabelWidth, permissionColumnWidth, 6, ref rule.AllowPrisonerWork,
+                "Allow prisoners to perform ordinary assigned work when a prison-labor system assigns it.");
+            TooltipHandler.TipRegion(workAccessLabelRect,
+                "Controls construction, bills, cleaning, flicking, and other ordinary work. Hauling and wandering remain independently configurable below.");
+
+            y += 28f;
             Rect haulingLabelRect = new Rect(x, y + 2f, permissionLabelWidth, 24f);
             Widgets.Label(haulingLabelRect, "Hauling:");
             bool allHauling = AllHaulingAllowed(rule);
@@ -279,7 +303,7 @@ namespace AutomaticApparel.UI
                 rule.ReturnTaskBuffer++;
             GUI.enabled = previousBufferEnabled;
             TooltipHandler.TipRegion(new Rect(bufferLabelRect.x, y, 286f, 28f),
-                "Choose how many ordinary tasks a pawn may start after leaving this work area before returning to the locker room and outfitting saved gear. Immediate returns after the first managed job ends. Recall all returns workers immediately. Work requiring a different Automatic Apparel rule also bypasses this buffer.");
+                "Choose how many ordinary tasks a pawn may start after leaving this work area before returning to the locker room and outfitting saved gear. Immediate returns after the first managed job ends. Pause work bypasses the buffer and starts returning current workers. Work requiring a different AutomaticOutfitManager rule also bypasses this buffer.");
 
             y += 34f;
             Rect gearLabelRect = new Rect(x, y + 4f, 100f, 24f);
@@ -306,7 +330,8 @@ namespace AutomaticApparel.UI
 
             List<State.PawnApparelState> workers = component.PawnStates
                 .Where(state => state?.Pawn?.RaceProps?.Humanlike == true &&
-                                state.Pawn.apparel != null && state.ActiveRuleId == rule.Id)
+                                state.Pawn.apparel != null &&
+                                TracksRule(state, rule.Id))
                 .ToList();
             CachedRuleActivity activity = RuleActivity(rule);
             y += 28f;
@@ -316,12 +341,12 @@ namespace AutomaticApparel.UI
             Widgets.Label(new Rect(x + 100f, y, width - 220f, 22f), readiness.Text);
             GUI.color = previousColor;
             TooltipHandler.TipRegion(new Rect(x, y, width, 22f),
-                "Checks whether this rule is enabled, has a work area and required gear, has storage inside its optional locker room, and has each required apparel type available or already in use. Recall all temporarily shows Paused until every recalled worker finishes changing. Active means the basic checks passed; pawns still obey normal reachability and reservation rules.");
+                "Checks whether this rule currently accepts work, has a work area and required gear, has storage inside its optional locker room, and has each required apparel type available or already in use. Work paused applies immediately; Resume work reopens the area immediately even if previous workers are still returning gear. Active — shared cells paused means work continues outside an overlapping paused area. Blocked — work area covered means paused overlaps cover every work cell. Pawns still obey normal reachability and reservation rules.");
             Rect recallRect = new Rect(rect.xMax - 120f, y - 1f, 110f, 24f);
             bool previousEnabled = GUI.enabled;
             GUI.enabled = rule.Area != null;
-            if (Widgets.ButtonText(recallRect, rule.WorkAreaPaused ? "Resume work" : "Recall all"))
-                RecallAllOrResume(rule, component);
+            if (Widgets.ButtonText(recallRect, rule.WorkAreaPaused ? "Resume work" : "Pause work"))
+                PauseOrResumeWork(rule, component);
             GUI.enabled = previousEnabled;
             TooltipHandler.TipRegion(recallRect,
                 rule.WorkAreaPaused
@@ -339,21 +364,32 @@ namespace AutomaticApparel.UI
                 for (int workerIndex = 0; workerIndex < workers.Count; workerIndex++)
                 {
                     State.PawnApparelState state = workers[workerIndex];
-                    string fullStatus = PawnAutomaticApparelStatus.Build(state.Pawn) ?? "Automatic Apparel: Active";
-                    string shortStatus = fullStatus.Split('\n')[0].Replace("Automatic Apparel: ", "");
+                    string fullStatus = PawnAutomaticOutfitStatus.Build(state.Pawn) ?? "AutomaticOutfitManager: Active";
+                    int detailStart = fullStatus.IndexOf('\n');
+                    string headline = detailStart >= 0
+                        ? fullStatus.Substring(0, detailStart)
+                        : fullStatus;
+                    string shortStatus = headline.Replace("AutomaticOutfitManager: ", "");
+                    string hoverDetails = detailStart >= 0
+                        ? fullStatus.Substring(detailStart + 1)
+                        : null;
                     float workerY = y + workerIndex * 22f;
                     Rect workerRect = new Rect(x + 100f, workerY, width - 170f, 22f);
                     Widgets.DrawHighlightIfMouseover(workerRect);
                     Widgets.Label(workerRect, $"{state.Pawn.LabelShortCap} — {shortStatus}");
                     if (Widgets.ButtonInvisible(workerRect))
                         CameraJumper.TryJumpAndSelect(state.Pawn);
-                    TooltipHandler.TipRegion(workerRect, $"{fullStatus}\n\nClick to select and jump to {state.Pawn.LabelShortCap}.");
+                    string jumpHint = $"Click to select and jump to {state.Pawn.LabelShortCap}.";
+                    TooltipHandler.TipRegion(workerRect,
+                        string.IsNullOrEmpty(hoverDetails)
+                            ? jumpHint
+                            : $"{hoverDetails}\n\n{jumpHint}");
 
-                    Rect recallWorkerRect = new Rect(rect.xMax - 70f, workerY, 60f, 22f);
-                    if (Widgets.ButtonText(recallWorkerRect, "Recall"))
-                        RecallWorker(state);
-                    TooltipHandler.TipRegion(recallWorkerRect,
-                        $"Send only {state.Pawn.LabelShortCap} back to the locker room to return managed gear and restore saved clothing. This rule remains active for other workers.");
+                    Rect returnWorkerRect = new Rect(rect.xMax - 70f, workerY, 60f, 22f);
+                    if (Widgets.ButtonText(returnWorkerRect, "Return"))
+                        ReturnWorker(state);
+                    TooltipHandler.TipRegion(returnWorkerRect,
+                        $"Send only {state.Pawn.LabelShortCap} back to the locker room to return managed gear and restore saved clothing. Work remains active in this area for other workers.");
                 }
             }
 
@@ -394,22 +430,33 @@ namespace AutomaticApparel.UI
             }
         }
 
+        private static bool TracksRule(State.PawnApparelState state, string ruleId)
+        {
+            if (state == null || string.IsNullOrEmpty(ruleId))
+                return false;
+
+            return state.ActiveRuleId == ruleId ||
+                   state.CurrentRuleIds?.Contains(ruleId) == true ||
+                   state.NestedRuleBuffers?.Any(progress =>
+                       progress != null && progress.RuleId == ruleId) == true;
+        }
+
         private float RuleHeight(
             ApparelRule rule,
-            AutomaticApparelGameComponent component)
+            AutomaticOutfitManagerGameComponent component)
         {
             if (rule?.UiCollapsed == true)
                 return 70f;
 
             int workerCount = component.PawnStates.Count(state =>
                 state?.Pawn?.RaceProps?.Humanlike == true && state.Pawn.apparel != null &&
-                state.ActiveRuleId == rule.Id);
+                TracksRule(state, rule.Id));
             CachedRuleActivity activity = RuleActivity(rule);
             int haulerCount = activity.Haulers.Count;
             int wandererCount = activity.Wanderers.Count;
             float activityHeight = 8f + Mathf.Max(1, haulerCount) * 22f +
                                    Mathf.Max(1, wandererCount) * 22f;
-            return Mathf.Max(368f, 346f + Mathf.Max(1, workerCount) * 22f +
+            return Mathf.Max(396f, 374f + Mathf.Max(1, workerCount) * 22f +
                 activityHeight);
         }
 
@@ -498,6 +545,20 @@ namespace AutomaticApparel.UI
             rule.AllowAnimalHauling && rule.AllowGuestHauling &&
             rule.AllowSlaveHauling && rule.AllowPrisonerHauling;
 
+        private static bool AllWorkAllowed(ApparelRule rule) =>
+            rule.AllowColonistWork && rule.AllowRobotWork && rule.AllowAnimalWork &&
+            rule.AllowGuestWork && rule.AllowSlaveWork && rule.AllowPrisonerWork;
+
+        private static void SetAllWork(ApparelRule rule, bool value)
+        {
+            rule.AllowColonistWork = value;
+            rule.AllowRobotWork = value;
+            rule.AllowAnimalWork = value;
+            rule.AllowGuestWork = value;
+            rule.AllowSlaveWork = value;
+            rule.AllowPrisonerWork = value;
+        }
+
         private static void SetAllHauling(ApparelRule rule, bool value)
         {
             rule.AllowColonistHauling = value;
@@ -525,17 +586,18 @@ namespace AutomaticApparel.UI
 
         private static void ToggleWorkPause(
             ApparelRule rule,
-            AutomaticApparelGameComponent component)
+            AutomaticOutfitManagerGameComponent component)
         {
             rule.WorkAreaPaused = !rule.WorkAreaPaused;
             if (!rule.WorkAreaPaused || rule.Area?.Map == null)
                 return;
 
             List<State.PawnApparelState> areaWorkers = component.PawnStates
-                .Where(state => state?.Pawn != null && state.ActiveRuleId == rule.Id)
+                .Where(state => state?.Pawn != null &&
+                    TracksRule(state, rule.Id))
                 .ToList();
             foreach (State.PawnApparelState state in areaWorkers)
-                RecallWorker(state);
+                ReturnWorker(state);
 
             // Existing untracked work is enforced by the game component on its
             // next scheduled tick. Do not mutate pawn job trackers from OnGUI:
@@ -543,32 +605,31 @@ namespace AutomaticApparel.UI
             // and leave the pause operation only partially applied.
         }
 
-        private static void RecallAllOrResume(
+        private static void PauseOrResumeWork(
             ApparelRule rule,
-            AutomaticApparelGameComponent component)
+            AutomaticOutfitManagerGameComponent component)
         {
-            if (!rule.WorkAreaPaused)
-            {
-                foreach (State.PawnApparelState state in component.PawnStates.Where(state =>
-                    state?.ActiveRuleId == rule.Id))
-                {
-                    state.RecallAllRequested = true;
-                }
-            }
-
             ToggleWorkPause(rule, component);
         }
 
         private CachedRuleReadiness RuleReadiness(
             ApparelRule rule,
-            AutomaticApparelGameComponent component)
+            AutomaticOutfitManagerGameComponent component)
         {
             Map map = Find.CurrentMap;
-            bool recallAllInProgress = component.PawnStates.Any(state =>
-                state?.ActiveRuleId == rule.Id && state.RecallAllRequested);
-            string signature = $"{rule.Enabled}|{rule.WorkAreaPaused}|{recallAllInProgress}|{rule.Area?.GetUniqueLoadID()}|" +
+            List<ApparelRule> signatureRules = component.Rules
+                .Where(candidate => candidate != null &&
+                    (ReferenceEquals(candidate, rule) ||
+                     (rule.Area?.Map != null && candidate.Area?.Map == rule.Area.Map)))
+                .ToList();
+            string signature = $"{rule.Enabled}|{rule.WorkAreaPaused}|{rule.Area?.GetUniqueLoadID()}|" +
                 $"{rule.ChangingArea?.GetUniqueLoadID()}|" +
-                string.Join(",", rule.RequiredApparel.Where(def => def != null).Select(def => def.defName));
+                string.Join(",", signatureRules
+                    .OrderBy(candidate => candidate.Id)
+                    .Select(candidate =>
+                        $"{candidate.Id}:{candidate.Enabled}:{candidate.WorkAreaPaused}:" +
+                        string.Join(".", (candidate.RequiredApparel ?? new List<ThingDef>())
+                            .Where(def => def != null).Select(def => def.defName))));
             if (readinessCache.TryGetValue(rule.Id, out CachedRuleReadiness cached) &&
                 cached.Signature == signature &&
                 Time.realtimeSinceStartup - cached.CreatedAt < ReadinessCacheSeconds)
@@ -576,29 +637,32 @@ namespace AutomaticApparel.UI
                 return cached;
             }
 
+            List<ApparelRule> overlappingRules =
+                ApparelCompatibility.OverlappingRules(rule);
+            List<ApparelRule> pausedOverlaps =
+                ApparelCompatibility.PausedOverlappingRules(rule);
+            bool workAreaCoveredByPausedOverlaps =
+                WorkAreaCoveredBy(rule, pausedOverlaps);
             string text;
             Color color;
             Dictionary<ThingDef, int> availableCounts = rule.RequiredApparel
                 .Where(def => def != null)
                 .Distinct()
                 .ToDictionary(def => def, def => AvailableGearCount(def, map, component));
+            ApparelConflict apparelConflict =
+                ApparelCompatibility.FindConflict(overlappingRules);
             string gearSummary = availableCounts.Count == 0
                 ? "None"
                 : string.Join(", ", availableCounts.Select(pair =>
                     $"{pair.Key.LabelCap}: {pair.Value} available"));
             if (!rule.Enabled)
             {
-                text = "Paused";
-                color = Color.yellow;
-            }
-            else if (recallAllInProgress)
-            {
-                text = "Paused";
+                text = "Disabled";
                 color = Color.yellow;
             }
             else if (rule.WorkAreaPaused)
             {
-                text = "Paused";
+                text = "Work paused";
                 color = Color.yellow;
             }
             else if (rule.Area == null)
@@ -609,6 +673,17 @@ namespace AutomaticApparel.UI
             else if (rule.RequiredApparel == null || rule.RequiredApparel.Count == 0)
             {
                 text = "No required gear selected";
+                color = Color.yellow;
+            }
+            else if (apparelConflict != null)
+            {
+                text = $"Blocked — incompatible gear: {apparelConflict.Label}";
+                color = Color.red;
+            }
+            else if (workAreaCoveredByPausedOverlaps)
+            {
+                string names = string.Join(", ", pausedOverlaps.Select(overlap => overlap.Name));
+                text = $"Blocked — work area covered by paused: {names}";
                 color = Color.yellow;
             }
             else if (rule.ChangingArea != null && map != null &&
@@ -631,8 +706,18 @@ namespace AutomaticApparel.UI
                 }
                 else
                 {
-                    text = "Active";
-                    color = Color.green;
+                    if (pausedOverlaps.Count > 0)
+                    {
+                        string names = string.Join(", ",
+                            pausedOverlaps.Select(overlap => overlap.Name));
+                        text = $"Active — shared cells paused: {names}";
+                        color = Color.yellow;
+                    }
+                    else
+                    {
+                        text = "Active";
+                        color = Color.green;
+                    }
                 }
             }
 
@@ -648,10 +733,30 @@ namespace AutomaticApparel.UI
             return cached;
         }
 
+        private static bool WorkAreaCoveredBy(
+            ApparelRule rule, List<ApparelRule> coveringRules)
+        {
+            if (rule?.Area == null || coveringRules == null || coveringRules.Count == 0)
+                return false;
+
+            bool hasActiveCell = false;
+            foreach (IntVec3 cell in rule.Area.ActiveCells)
+            {
+                hasActiveCell = true;
+                if (!coveringRules.Any(candidate =>
+                        candidate?.Area?.Map == rule.Area.Map && candidate.Area[cell]))
+                {
+                    return false;
+                }
+            }
+
+            return hasActiveCell;
+        }
+
         private static int AvailableGearCount(
             ThingDef def,
             Map map,
-            AutomaticApparelGameComponent component)
+            AutomaticOutfitManagerGameComponent component)
         {
             if (map?.listerThings == null)
                 return 0;
@@ -666,18 +771,19 @@ namespace AutomaticApparel.UI
         private static bool RequiredGearInUse(
             ThingDef def,
             Map map,
-            AutomaticApparelGameComponent component)
+            AutomaticOutfitManagerGameComponent component)
         {
             return component.PawnStates.Any(state => state?.Pawn?.Map == map &&
-                state.Pawn.apparel?.WornApparel.Any(apparel => apparel?.def == def) == true);
+                state.Pawn.apparel?.WornApparel.Any(apparel => apparel?.def == def &&
+                    state.ManagedApparel?.Contains(apparel) == true) == true);
         }
 
-        private static void RecallWorker(State.PawnApparelState state)
+        private static void ReturnWorker(State.PawnApparelState state)
         {
             if (state?.Pawn == null)
                 return;
 
-            AutomaticApparelGameComponent.Current?.RequestRecall(state);
+            AutomaticOutfitManagerGameComponent.Current?.RequestRecall(state);
         }
 
         private static void ShowAreaMenu(ApparelRule rule)

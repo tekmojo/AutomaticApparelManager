@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using AutomaticApparel.Rules;
+using AutomaticOutfitManager.Detection;
+using AutomaticOutfitManager.Rules;
 using UnityEngine;
 using Verse;
 
-namespace AutomaticApparel.UI
+namespace AutomaticOutfitManager.UI
 {
     public sealed class ApparelSelectionWindow : Window
     {
@@ -13,12 +14,14 @@ namespace AutomaticApparel.UI
 
         private readonly ApparelRule rule;
         private readonly List<ThingDef> apparelDefs;
+        private readonly List<ApparelRule> overlappingRules;
         private Vector2 scrollPosition;
         private string searchText = "";
 
         public ApparelSelectionWindow(ApparelRule rule)
         {
             this.rule = rule;
+            overlappingRules = ApparelCompatibility.OverlappingRules(rule);
             apparelDefs = DefDatabase<ThingDef>.AllDefsListForReading
                 .Where(def => def?.apparel != null)
                 .OrderBy(def => def.LabelCap.ToString())
@@ -71,6 +74,9 @@ namespace AutomaticApparel.UI
                 Widgets.DrawHighlight(rect);
 
             bool selected = rule.RequiredApparel.Contains(def);
+            ApparelConflict conflict = selected
+                ? null
+                : ApparelCompatibility.FindConflictIfAdded(rule, def, overlappingRules);
             string label = $"{def.LabelCap} [{def.defName}]";
             Widgets.Label(new Rect(rect.x + 4f, rect.y + 5f, rect.width - 100f, 24f), label);
 
@@ -80,6 +86,16 @@ namespace AutomaticApparel.UI
                 GUI.color = Color.gray;
                 Widgets.ButtonText(buttonRect, "Added", active: false);
                 GUI.color = Color.white;
+            }
+            else if (conflict != null)
+            {
+                bool previousEnabled = GUI.enabled;
+                GUI.enabled = false;
+                Widgets.ButtonText(buttonRect, "Conflict");
+                GUI.enabled = previousEnabled;
+                TooltipHandler.TipRegion(rect,
+                    $"Cannot add this apparel because {conflict.Label}. " +
+                    "Outer and nested work-area gear must remain wearable together.");
             }
             else if (Widgets.ButtonText(buttonRect, "Add"))
             {

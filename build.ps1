@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$project = Join-Path $PSScriptRoot "Source\AutomaticApparel.csproj"
+$project = Join-Path $PSScriptRoot "Source\AutomaticOutfitManager.csproj"
 
 if (-not $RimWorldDir) {
     $steamPath = (Get-ItemProperty "HKCU:\Software\Valve\Steam" -ErrorAction SilentlyContinue).SteamPath
@@ -25,9 +25,13 @@ if (-not (Test-Path $HarmonyDll)) {
     throw "Harmony was not found. Pass -HarmonyDll with the path to 0Harmony.dll."
 }
 
-Write-Host "Building Automatic Apparel Manager"
+Write-Host "Building AutomaticOutfitManager"
 Write-Host "RimWorld: $RimWorldDir"
 Write-Host "Harmony:  $HarmonyDll"
+
+$outputDir = Join-Path $PSScriptRoot "1.6\Assemblies"
+$outputDll = Join-Path $outputDir "AutomaticOutfitManager.dll"
+New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 
 $sdkAvailable = dotnet --list-sdks
 if ($sdkAvailable) {
@@ -47,8 +51,6 @@ if (-not (Test-Path $compiler)) {
 }
 
 $managedDir = Join-Path $RimWorldDir "RimWorldWin64_Data\Managed"
-$outputDir = Join-Path $PSScriptRoot "1.6\Assemblies"
-$outputDll = Join-Path $outputDir "AutomaticApparel.dll"
 $sources = Get-ChildItem (Join-Path $PSScriptRoot "Source") -Recurse -Filter "*.cs" | Select-Object -ExpandProperty FullName
 $references = @(
     (Join-Path $managedDir "netstandard.dll"),
@@ -59,7 +61,6 @@ $references = @(
     $HarmonyDll
 ) | ForEach-Object { "/reference:$_" }
 
-New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 & $compiler /nologo /target:library /langversion:latest /nullable:disable "/out:$outputDll" $references $sources
 if ($LASTEXITCODE -ne 0) {
     throw "C# compilation failed with exit code $LASTEXITCODE."

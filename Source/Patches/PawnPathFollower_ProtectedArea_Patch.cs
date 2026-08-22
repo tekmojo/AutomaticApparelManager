@@ -1,13 +1,14 @@
-using AutomaticApparel.Core;
-using AutomaticApparel.Detection;
-using AutomaticApparel.Rules;
-using AutomaticApparel.State;
+using System.Collections.Generic;
+using AutomaticOutfitManager.Core;
+using AutomaticOutfitManager.Detection;
+using AutomaticOutfitManager.Rules;
+using AutomaticOutfitManager.State;
 using HarmonyLib;
 using RimWorld;
 using Verse;
 using Verse.AI;
 
-namespace AutomaticApparel.Patches
+namespace AutomaticOutfitManager.Patches
 {
     /// <summary>
     /// Rechecks the cell RimWorld is actually about to enter. A job's route can
@@ -18,6 +19,8 @@ namespace AutomaticApparel.Patches
     [HarmonyPatch(typeof(Pawn_PathFollower), "TryEnterNextPathCell")]
     public static class PawnPathFollower_ProtectedArea_Patch
     {
+        private static readonly Dictionary<int, int> LastBlockedLogTick =
+            new Dictionary<int, int>();
         private static readonly AccessTools.FieldRef<Pawn_PathFollower, Pawn> PawnField =
             AccessTools.FieldRefAccess<Pawn_PathFollower, Pawn>("pawn");
         private static readonly AccessTools.FieldRef<Pawn_PathFollower, IntVec3> NextCellField =
@@ -26,26 +29,22 @@ namespace AutomaticApparel.Patches
         public static bool Prefix(Pawn_PathFollower __instance)
         {
             Pawn pawn = PawnField(__instance);
-            if (pawn?.Map == null || pawn.Drafted || pawn.Faction != Faction.OfPlayer ||
-                pawn.RaceProps?.Humanlike != true || pawn.jobs?.curJob == null)
+            if (pawn?.Map == null || pawn.Drafted ||
+                !PawnAccessClassifier.IsApparelEligibleHuman(pawn) ||
+                pawn.jobs?.curJob == null)
             {
                 return true;
             }
 
             Job currentJob = pawn.jobs.curJob;
-            if (currentJob.def == JobDefOf.Wear || currentJob.def == JobDefOf.RemoveApparel)
-                return true;
-
-            PawnApparelState state = AutomaticApparelGameComponent.Current?.StateFor(pawn);
-            if (state?.Transition == ApparelTransition.Preparing)
-                return true;
+            PawnApparelState state = AutomaticOutfitManagerGameComponent.Current?.StateFor(pawn);
 
             // A pause recall can legitimately route a pawn through the protected
-            // work area to reach its configured changing area. The StartJob patch
-            // has already replaced the interrupted work with this exact Goto, so
-            // allow only that narrowly identified transition rather than broadly
-            // exempting every pawn with RecallRequested set.
-            if (IsRecallGotoToChangingArea(pawn, currentJob, state))
+            // work area to reach its configured changing area and exact saved
+            // apparel. The StartJob patch has already assigned these transition
+            // jobs, so allow only the recorded Goto/apparel operations rather
+            // than broadly exempting every pawn with RecallRequested set.
+            if (IsManagedRecallTransition(pawn, currentJob, state))
                 return true;
 
             IntVec3 nextCell = NextCellField(__instance);
@@ -53,7 +52,7 @@ namespace AutomaticApparel.Patches
                 return true;
 
             ApparelRule rule = null;
-            var rules = AutomaticApparelGameComponent.Current?.Rules;
+            var rules = AutomaticOutfitManagerGameComponent.Current?.Rules;
             if (rules != null)
             {
                 foreach (ApparelRule candidate in rules)
@@ -64,8 +63,7 @@ namespace AutomaticApparel.Patches
 
                     bool blocked = candidate.WorkAreaPaused
                         ? !PausedAreaWorkFilter.JobMayEnterPausedRule(pawn, currentJob, candidate)
-                        : RuleEvaluator.RuleCanApplyToPawn(pawn, candidate) &&
-                          RuleEvaluator.HasMissingRequiredApparel(pawn, candidate);
+                        : RuleEvaluator.HasMissingRequiredApparel(pawn, candidate);
                     if (blocked)
                     {
                         rule = candidate;
@@ -78,10 +76,16 @@ namespace AutomaticApparel.Patches
 
             if (Prefs.DevMode)
             {
-                string reason = rule.WorkAreaPaused
-                    ? "while work is paused"
-                    : "without its required work gear";
-                Log.Message($"[Automatic Apparel] {pawn.LabelShortCap}: stopped before entering '{rule.Name}' {reason}; reconsidering {currentJob.def.defName}.");
+                int tick = Find.TickManager?.TicksGame ?? 0;
+                if (!LastBlockedLogTick.TryGetValue(pawn.thingIDNumber, out int lastTick) ||
+                    tick - lastTick >= 600)
+                {
+                    LastBlockedLogTick[pawn.thingIDNumber] = tick;
+                    string reason = rule.WorkAreaPaused
+                        ? "while work is paused"
+                        : "without its required work gear";
+                    Log.Message($"[AutomaticOutfitManager] {pawn.LabelShortCap}: stopped before entering '{rule.Name}' {reason}; reconsidering {currentJob.def.defName}.");
+                }
             }
 
             // End the candidate before it enters the protected cell. RimWorld's
@@ -96,25 +100,49 @@ namespace AutomaticApparel.Patches
             if (rule.WorkAreaPaused)
                 pawn.jobs.ClearQueuedJobs(false);
 
-            pawn.jobs.EndCurrentJob(JobCondition.InterruptForced, true, true);
+            // Do not synchronously select another job from inside the path-cell
+            // callback. If the thinker returns the same candidate, recursive
+            // EndCurrentJob calls can produce hundreds of retries in one tick.
+            // Leaving selection to the next job-tracker tick gives StartJob a
+            // clean opportunity to prepare every rule crossed by the new path.
+            pawn.jobs.EndCurrentJob(JobCondition.InterruptForced, false, true);
             return false;
         }
 
-        private static bool IsRecallGotoToChangingArea(
+        private static bool IsManagedRecallTransition(
             Pawn pawn, Job currentJob, PawnApparelState state)
         {
-            if (pawn?.Map == null || currentJob?.def != JobDefOf.Goto ||
-                state?.RecallRequested != true ||
-                state.Transition != ApparelTransition.ReturningToChangingArea)
+            if (pawn?.Map == null || currentJob?.def == null ||
+                state?.RecallRequested != true)
             {
                 return false;
             }
 
-            var activeRule = AutomaticApparelGameComponent.Current?
-                .RuleById(state.ActiveRuleId);
-            return activeRule?.Enabled == true &&
-                   activeRule.ChangingArea?.Map == pawn.Map &&
-                   RuleEvaluator.JobTargetsArea(currentJob, activeRule.ChangingArea);
+            if (state.Transition == ApparelTransition.ReturningToChangingArea &&
+                currentJob.def == JobDefOf.Goto)
+            {
+                var activeRule = AutomaticOutfitManagerGameComponent.Current?
+                    .RuleById(state.ActiveRuleId);
+                return activeRule?.Enabled == true &&
+                       activeRule.ChangingArea?.Map == pawn.Map &&
+                       RuleEvaluator.JobTargetsArea(currentJob, activeRule.ChangingArea);
+            }
+
+            if (state.Transition != ApparelTransition.Restoring ||
+                currentJob.targetA.Thing is not Apparel apparel)
+            {
+                return false;
+            }
+
+            if (currentJob.def == JobDefOf.Wear)
+                return state.OriginalApparel?.Contains(apparel) == true;
+
+            if (currentJob.def == JobDefOf.RemoveApparel)
+                return state.ManagedApparel?.Contains(apparel) == true;
+
+            return (currentJob.def == JobDefOf.HaulToCell ||
+                    currentJob.def == JobDefOf.HaulToContainer) &&
+                   state.ManagedApparel?.Contains(apparel) == true;
         }
     }
 }

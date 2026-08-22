@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
   <MainButtonDef>
-    <defName>AutomaticApparel_MainButton</defName>
-    <label>Auto Apparel</label>
-    <description>Configure area-based outfits, locker rooms, gear availability, worker status, and emergency recalls.</description>
-    <tabWindowClass>AutomaticApparel.UI.MainRulesWindow</tabWindowClass>
+    <defName>AutomaticOutfitManager_MainButton</defName>
+    <label>AutomaticOutfitManager</label>
+    <description>Configure area-based outfits, locker rooms, gear availability, worker status, and pause/resume controls.</description>
+    <tabWindowClass>AutomaticOutfitManager.UI.MainRulesWindow</tabWindowClass>
     <order>47</order>
     <minimized>true</minimized>
-    <iconPath>UI/Buttons/MainButtons/AutomaticApparel</iconPath>
+    <iconPath>UI/Buttons/MainButtons/AutomaticOutfitManager</iconPath>
   </MainButtonDef>
 </Defs>

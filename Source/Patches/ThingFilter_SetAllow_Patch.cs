@@ -1,21 +1,21 @@
-using AutomaticApparel.Storage;
+using AutomaticOutfitManager.Storage;
 using HarmonyLib;
 using RimWorld;
 using Verse;
 
-namespace AutomaticApparel.Patches
+namespace AutomaticOutfitManager.Patches
 {
     [HarmonyPatch(typeof(ThingFilter), nameof(ThingFilter.SetAllow), typeof(SpecialThingFilterDef), typeof(bool))]
     public static class ThingFilter_SetAllow_Patch
     {
         public static void Postfix(ThingFilter __instance, SpecialThingFilterDef sfDef, bool allow)
         {
-            if (!allow || sfDef?.defName != "AutomaticApparel_AllowAutomatic")
+            if (!allow || sfDef?.defName != "AutomaticOutfitManager_AllowManaged")
                 return;
 
             foreach (ThingDef def in DefDatabase<ThingDef>.AllDefsListForReading)
             {
-                if (AutomaticApparelClassifier.Matches(def))
+                if (ManagedApparelClassifier.Matches(def))
                     __instance.SetAllow(def, true);
             }
         }
@@ -23,17 +23,17 @@ namespace AutomaticApparel.Patches
 
     [HarmonyPatch(typeof(ThingFilter), nameof(ThingFilter.Allows), typeof(Thing))]
     [HarmonyPriority(Priority.Last)]
-    public static class ThingFilter_EnforceAutomaticApparel_Patch
+    public static class ThingFilter_EnforceManagedOutfit_Patch
     {
         public static void Postfix(ThingFilter __instance, Thing t, ref bool __result)
         {
             if (!__result || t?.def?.apparel == null)
                 return;
 
-            bool automatic = AutomaticApparelClassifier.Matches(t);
+            bool automatic = ManagedApparelClassifier.Matches(t);
             string filterName = automatic
-                ? "AutomaticApparel_AllowAutomatic"
-                : "AutomaticApparel_AllowNonAutomatic";
+                ? "AutomaticOutfitManager_AllowManaged"
+                : "AutomaticOutfitManager_AllowUnmanaged";
             SpecialThingFilterDef filterDef =
                 DefDatabase<SpecialThingFilterDef>.GetNamedSilentFail(filterName);
 
@@ -47,7 +47,7 @@ namespace AutomaticApparel.Patches
     // shared storage-settings boundary as well.
     [HarmonyPatch(typeof(StorageSettings), nameof(StorageSettings.AllowedToAccept), typeof(Thing))]
     [HarmonyPriority(Priority.Last)]
-    public static class StorageSettings_EnforceAutomaticApparel_Patch
+    public static class StorageSettings_EnforceManagedOutfit_Patch
     {
         public static void Postfix(StorageSettings __instance, Thing t, ref bool __result)
         {
@@ -58,10 +58,10 @@ namespace AutomaticApparel.Patches
             if (filter == null)
                 return;
 
-            bool automatic = AutomaticApparelClassifier.Matches(t);
+            bool automatic = ManagedApparelClassifier.Matches(t);
             string filterName = automatic
-                ? "AutomaticApparel_AllowAutomatic"
-                : "AutomaticApparel_AllowNonAutomatic";
+                ? "AutomaticOutfitManager_AllowManaged"
+                : "AutomaticOutfitManager_AllowUnmanaged";
             SpecialThingFilterDef filterDef =
                 DefDatabase<SpecialThingFilterDef>.GetNamedSilentFail(filterName);
 

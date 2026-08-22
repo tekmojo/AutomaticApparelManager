@@ -1,29 +1,33 @@
-# Automatic Apparel Manager
+# AutomaticOutfitManager
 
-Automatic Apparel Manager is a RimWorld 1.6 mod for area-based work outfits and personal protective equipment (PPE).
+AutomaticOutfitManager is a RimWorld 1.6 mod for area-based work outfits and personal protective equipment (PPE).
+
+Repository: [github.com/tekmojo/AutomaticOutfitManager](https://github.com/tekmojo/AutomaticOutfitManager)
 
 Create a rule, select a work area, choose the required apparel, and optionally assign a locker room. Eligible colonists equip the gear before qualifying work, keep it for a configurable number of follow-up tasks, then return to the locker room and restore the exact clothing they wore beforehand.
 
 The mod uses ordinary RimWorld areas, jobs, apparel, reservations, and storage. It supports vanilla and modded apparel without hard-coded hazard or content-mod integrations.
+
+The package ID and other legacy internal identifiers intentionally remain unchanged so existing saves and mod references stay compatible with earlier releases.
 
 ## Requirements
 
 - RimWorld 1.6
 - Harmony
 
-Dubs Rimatomics inspired the original radiation-PPE scenario, but it is not a dependency. Automatic Apparel Manager does not detect radiation automatically.
+Dubs Rimatomics inspired the original radiation-PPE scenario, but it is not a dependency. AutomaticOutfitManager does not detect radiation automatically.
 
 ## Quick start
 
 1. Create a RimWorld area covering the workspace that needs special clothing.
 2. Optionally create a second area around the changing and storage space.
-3. Open the **Auto Apparel** main tab.
+3. Open the **AutomaticOutfitManager** main tab.
 4. Select **Add rule**, name it, and choose the **Work area**.
 5. Select an optional **Locker room**.
 6. Use **Choose gear** to add every required apparel item.
 7. Configure the task buffer and access permissions.
 8. Put reachable copies of the required gear on the map.
-9. For dedicated storage, enable **Allow automatic apparel** in its storage settings.
+9. For dedicated storage, enable **Allow managed outfit gear** in its storage settings.
 
 ## How each feature works
 
@@ -62,7 +66,7 @@ The task buffer controls how many ordinary jobs a pawn may start after leaving q
 - Higher values reduce repeated changes around busy work areas.
 - Renewed qualifying work inside the area resets the counter.
 - Sleeping bypasses the buffer and begins restoration.
-- Recall, drafting, forced orders, and item availability can alter when restoration completes.
+- Pausing work, drafting, forced orders, and item availability can alter when restoration completes.
 
 The worker row identifies the activity, for example:
 
@@ -82,11 +86,13 @@ The mod restores the exact apparel instances captured at the start, not merely a
 
 Select saved apparel to use **Jump to owner** or **Clear saved owner**. Clearing the owner releases an abandoned or permanently misplaced item for normal use.
 
-### Recall all and pause/resume
+### Pause and resume work
 
-**Recall all** pauses ordinary work in the rule’s area and returns active workers to the locker. The rule remains configured and enabled.
+**Pause work** closes the rule’s area to ordinary work and returns active workers to the locker. The rule remains configured and enabled.
 
-While paused, existing ordinary work is interrupted safely, new ordinary work is rejected before assignment, and workers finish restoration. Permitted hauling and wandering remain independently controlled. The button changes to **Resume work**, including in collapsed view.
+While work is paused, existing ordinary work is interrupted safely, new ordinary work is rejected before assignment, and workers finish restoration. Permitted hauling and wandering remain independently controlled. The button changes to **Resume work**, including in collapsed view. Readiness changes immediately with the rule; worker rows independently show anyone still returning or restoring gear.
+
+When enabled work areas overlap, the most restrictive pause wins in their shared cells. A larger or partially overlapping rule reports **Active — shared cells paused: Rule name** and continues working elsewhere. A rule whose every work cell is covered reports **Blocked — work area covered by paused: Rule name**. Return travel and exact saved-clothing restoration remain allowed so workers can leave safely and finish changing.
 
 ### Hauling and wandering access
 
@@ -100,7 +106,7 @@ These permissions govern travel into or through the area; they do not outfit non
 
 ### Readiness and worker status
 
-Readiness reports whether a rule is enabled, configured, and has the required gear/storage available. **Paused** means work was recalled and remains paused until resumed. Availability is a map-level summary; an item can still become reserved, unreachable, worn, or moved.
+Readiness reports whether a rule currently accepts work, is configured, and has the required gear/storage available. **Work paused** means the rule was paused and remains closed until resumed. **Active — shared cells paused** means only the overlap is closed; **Blocked — work area covered** means paused overlaps cover the entire rule. Returning workers do not make an active rule appear paused. Availability is a map-level summary; an item can still become reserved, unreachable, worn, or moved.
 
 Worker rows and hover tooltips expose the current transition:
 
@@ -110,7 +116,7 @@ Worker rows and hover tooltips expose the current transition:
 - **Returning to locker room** — traveling to the changing area.
 - **Outfitting saved gear** — removing work gear and restoring personal clothing.
 - **Restoration paused — sleeping or resting/drafted/forced order** — higher-priority behavior currently wins.
-- **Recall pending** — waiting for a safe job transition.
+- **Return pending** — waiting for a safe job transition.
 
 Hovering also shows the rule, buffer count, missing gear, destination, or why saved apparel is unavailable. Clicking a worker selects and jumps to that pawn.
 
@@ -122,10 +128,10 @@ Rules are named, enabled/disabled, and saved with the game. **Collapse** creates
 
 The mod adds two special apparel filters:
 
-- **Allow automatic apparel** — accepts rule-required or currently managed apparel.
-- **Allow non-automatic apparel** — accepts ordinary apparel not managed by the mod.
+- **Allow managed outfit gear** — accepts rule-required or currently managed apparel.
+- **Allow non-managed apparel** — accepts ordinary apparel not managed by the mod.
 
-For a dedicated locker, enable automatic apparel and disable non-automatic apparel. Dropped managed gear is kept unforbidden so normal hauling can move it. Filters are enforced at both thing-filter and storage-acceptance boundaries for compatibility with alternate storage systems.
+For a dedicated locker, enable managed outfit gear and disable non-managed apparel. Dropped managed gear is kept unforbidden so normal hauling can move it. Filters are enforced at both thing-filter and storage-acceptance boundaries for compatibility with alternate storage systems.
 
 ## Example scenarios
 
@@ -149,7 +155,7 @@ For a dedicated locker, enable automatic apparel and disable non-automatic appar
 - Work area: a player-created emergency zone
 - Gear: fire-resistant apparel from any loaded mod
 - Locker: emergency-equipment storage
-- Use **Recall all** when the emergency ends, then resume or disable the rule
+- Use **Pause work** when the emergency ends, then resume or disable the rule
 
 ### Clean room or hospital
 
@@ -182,7 +188,7 @@ Hover the worker. The tooltip reports whether the item is worn by another pawn, 
 
 ### Gear is not being stored in the locker
 
-Confirm storage inside the locker accepts the item and has **Allow automatic apparel** enabled. An eligible hauler must be permitted and able to reach both item and storage.
+Confirm storage inside the locker accepts the item and has **Allow managed outfit gear** enabled. An eligible hauler must be permitted and able to reach both item and storage.
 
 ### A pawn does not change clothing
 
@@ -219,10 +225,10 @@ For a non-default RimWorld location:
 .\build.ps1 -RimWorldDir "D:\SteamLibrary\steamapps\common\RimWorld"
 ```
 
-The DLL is written to `1.6\Assemblies\AutomaticApparel.dll`.
+The DLL is written to `1.6\Assemblies\AutomaticOutfitManager.dll`.
 
 ## Install for local testing
 
-Copy the repository folder into RimWorld’s `Mods` directory, enable **Harmony** first, then enable **Automatic Apparel Manager**.
+Copy the repository folder into RimWorld’s `Mods` directory, enable **Harmony** first, then enable **AutomaticOutfitManager**.
 
 See [`PROJECT-DESIGN.md`](PROJECT-DESIGN.md) for implementation scope and future phases.

@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
   <SpecialThingFilterDef>
-    <defName>AutomaticApparel_AllowAutomatic</defName>
-    <label>allow automatic apparel</label>
-    <description>Allow apparel used by an enabled Automatic Apparel rule or previously handled as part of an automatic outfit change.</description>
+    <defName>AutomaticOutfitManager_AllowManaged</defName>
+    <label>allow managed outfit gear</label>
+    <description>Allow apparel required by an enabled AutomaticOutfitManager rule or previously handled as part of a managed outfit change.</description>
     <parentCategory>Apparel</parentCategory>
     <allowedByDefault>false</allowedByDefault>
-    <saveKey>allowAutomaticApparel</saveKey>
-    <workerClass>AutomaticApparel.Storage.SpecialThingFilterWorker_AutomaticApparel</workerClass>
+    <saveKey>allowAutomaticOutfitManagerManaged</saveKey>
+    <workerClass>AutomaticOutfitManager.Storage.SpecialThingFilterWorker_ManagedOutfit</workerClass>
   </SpecialThingFilterDef>
 
   <SpecialThingFilterDef>
-    <defName>AutomaticApparel_AllowNonAutomatic</defName>
-    <label>allow non-automatic apparel</label>
-    <description>Allow apparel that is not used or managed by Automatic Apparel Manager.</description>
+    <defName>AutomaticOutfitManager_AllowUnmanaged</defName>
+    <label>allow non-managed apparel</label>
+    <description>Allow apparel that is not used or managed by AutomaticOutfitManager.</description>
     <parentCategory>Apparel</parentCategory>
     <allowedByDefault>true</allowedByDefault>
-    <saveKey>allowNonAutomaticApparel</saveKey>
-    <workerClass>AutomaticApparel.Storage.SpecialThingFilterWorker_NonAutomaticApparel</workerClass>
+    <saveKey>allowAutomaticOutfitManagerUnmanaged</saveKey>
+    <workerClass>AutomaticOutfitManager.Storage.SpecialThingFilterWorker_NonManagedOutfit</workerClass>
   </SpecialThingFilterDef>
 </Defs>

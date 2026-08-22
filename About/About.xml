@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <name>Automatic Apparel Manager</name>
+  <name>AutomaticOutfitManager</name>
   <author>tekmojo</author>
-  <packageId>tekmojo.automaticapparelmanager</packageId>
-  <modIconPath>UI/Buttons/MainButtons/AutomaticApparel</modIconPath>
+  <url>https://github.com/tekmojo/AutomaticOutfitManager</url>
+  <packageId>tekmojo.automaticoutfitmanager</packageId>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
@@ -17,5 +17,5 @@
   <loadAfter>
     <li>brrainz.harmony</li>
   </loadAfter>
-  <description>Create area-based work outfit and personal protective equipment (PPE) rules. Colonists equip required gear before qualifying work, use a configurable follow-up task buffer, return through an optional locker room, and restore their exact saved clothing. Includes live worker status, pause/recall controls, hauling and wandering permissions, child access, locker restocking, managed-apparel storage filters, saved-owner protection, and generic support for vanilla or modded apparel.</description>
+  <description>Create area-based outfit and personal protective equipment (PPE) rules. Pawns equip required gear before qualifying work, use a configurable follow-up task buffer, return through an optional locker room, and restore their exact saved clothing. Includes live worker status, pause/resume controls, hauling and wandering permissions, pawn-category access, nested work areas, locker restocking, managed-outfit storage filters, saved-owner protection, and generic support for vanilla or modded apparel.</description>
 </ModMetaData>

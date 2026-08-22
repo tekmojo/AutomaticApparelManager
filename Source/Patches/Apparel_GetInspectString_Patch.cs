@@ -1,22 +1,22 @@
 using System.Linq;
-using AutomaticApparel.Core;
-using AutomaticApparel.Storage;
+using AutomaticOutfitManager.Core;
+using AutomaticOutfitManager.Storage;
 using HarmonyLib;
 using RimWorld;
 
-namespace AutomaticApparel.Patches
+namespace AutomaticOutfitManager.Patches
 {
     [HarmonyPatch(typeof(Apparel), nameof(Apparel.GetInspectString))]
     public static class Apparel_GetInspectString_Patch
     {
         public static void Postfix(Apparel __instance, ref string __result)
         {
-            AutomaticApparelGameComponent component = AutomaticApparelGameComponent.Current;
+            AutomaticOutfitManagerGameComponent component = AutomaticOutfitManagerGameComponent.Current;
             if (__instance == null || component == null)
                 return;
 
             string managedLabel = null;
-            if (AutomaticApparelClassifier.Matches(__instance.def))
+            if (ManagedApparelClassifier.Matches(__instance.def))
             {
                 var matchingRules = component.Rules
                     .Where(rule => rule != null &&
@@ -35,7 +35,7 @@ namespace AutomaticApparel.Patches
                     .Distinct()
                     .ToList();
 
-                managedLabel = "Automatic Apparel: Required work gear";
+                managedLabel = "AutomaticOutfitManager: Required work gear";
                 if (workAreas.Count > 0)
                     managedLabel += $"\nRequired in: {string.Join(", ", workAreas)}";
                 if (lockerAreas.Count > 0)
@@ -45,8 +45,8 @@ namespace AutomaticApparel.Patches
             {
                 string owner = component.SavedOwnerFor(__instance);
                 managedLabel = string.IsNullOrEmpty(owner)
-                    ? "Automatic Apparel: Saved personal gear"
-                    : $"Automatic Apparel: Saved personal gear — {owner}";
+                    ? "AutomaticOutfitManager: Saved personal gear"
+                    : $"AutomaticOutfitManager: Saved personal gear — {owner}";
             }
 
             if (managedLabel == null)

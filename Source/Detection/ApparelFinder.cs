@@ -2,7 +2,7 @@ using RimWorld;
 using Verse;
 using Verse.AI;
 
-namespace AutomaticApparel.Detection
+namespace AutomaticOutfitManager.Detection
 {
     public static class ApparelFinder
     {
@@ -30,6 +30,8 @@ namespace AutomaticApparel.Detection
                           (area.Map == apparel.Map && area[apparel.Position])) &&
                          !apparel.IsForbidden(pawn) &&
                          EquipmentUtility.CanEquip(apparel, pawn) &&
+                         AutomaticOutfitManager.Core.AutomaticOutfitManagerGameComponent.Current?
+                             .IsManagedApparelAssignedToOtherPawn(apparel, pawn) != true &&
                          pawn.CanReserve(apparel)) as Apparel;
         }
     }

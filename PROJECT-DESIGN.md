@@ -1,8 +1,8 @@
-# Automatic Apparel Manager — Project Design
+# AutomaticOutfitManager — Project Design
 
 ## Goal
 
-Automatic Apparel Manager provides context-aware RimWorld outfits without hard-coded integrations. A player-defined area and selected apparel can represent radiation PPE, freezer clothing, firefighting equipment, clean-room garments, industrial safety gear, combat armor, or role-play uniforms.
+AutomaticOutfitManager provides context-aware RimWorld outfits without hard-coded integrations. A player-defined area and selected apparel can represent radiation PPE, freezer clothing, firefighting equipment, clean-room garments, industrial safety gear, combat armor, or role-play uniforms.
 
 The mod does not detect hazards. It reacts to jobs, routes, areas, apparel, and player configuration.
 
@@ -12,8 +12,14 @@ The mod does not detect hazards. It reacts to jobs, routes, areas, apparel, and 
 2. **Vanilla jobs where practical.** Use normal wear, remove, haul, path, reservation, and storage behavior.
 3. **Save-specific configuration.** Rules and active pawn transitions persist with the game.
 4. **Compatibility first.** Intercept narrow boundaries and recover safely when another mod changes a job.
-5. **Player control wins.** Drafting, forced orders, schedules, and explicit recalls are not aggressively overridden.
+5. **Player control wins.** Drafting, forced orders, schedules, and explicit pause/return commands are not aggressively overridden.
 6. **Bounded recovery.** Failed transitions use cooldowns instead of immediate retry loops.
+
+## Product identity and compatibility
+
+The player-facing product name is **AutomaticOutfitManager**. The broader “outfit” name leaves room for future managed equipment such as optional melee or ranged weapon requirements while keeping apparel and PPE as the current implemented scope.
+
+The product and repository are fully branded **AutomaticOutfitManager**. The package ID is `tekmojo.automaticoutfitmanager`; the assembly, namespace, Harmony ID, DefNames, serialized keys, source names, and asset paths use the same identity. The rebrand intentionally establishes a clean identity rather than retaining compatibility with saves created under the former product name.
 
 ## Phase 1 — Area-triggered outfitting (implemented)
 
@@ -41,7 +47,7 @@ Each intervention records:
 - Exact original apparel references
 - Exact automatic/work apparel references
 - Preparing, active, returning, or restoring transition
-- Recall state and safe-interrupt cooldown
+- Return-request state and safe-interrupt cooldown
 - Task-buffer usage and current buffered job
 - Locker-return and restoration retry timing
 
@@ -49,7 +55,7 @@ Runtime indexes accelerate frequent pawn-state and managed-item lookups without 
 
 ### Restoration
 
-After managed work and the configured task buffer finish, the pawn returns to the optional locker room, removes automatic apparel, and restores the exact saved items.
+After managed work and the configured task buffer finish, the pawn returns to the optional locker room, removes managed outfit gear, and restores the exact saved items.
 
 Destroyed references are skipped. Temporarily unavailable items report their status and retry after a cooldown. Recovery/wait jobs pass through so a failed wear operation cannot create a same-tick retry storm. A player can deliberately release a claim with **Clear saved owner**.
 
@@ -78,11 +84,13 @@ Rules may reference a separate changing area:
 - A periodic invariant check removes wrongly worn claimed apparel if another mod bypasses normal validation.
 - Inspection text and apparel gizmos expose role, owner, areas, jump-to-owner, and clear-owner actions.
 
-### Work pause and recall
+### Pause and resume work
 
-**Recall all** pauses ordinary work for one rule, interrupts active work safely, and restores current workers. **Resume work** reopens it. The control remains available in collapsed view.
+**Pause work** closes one rule to ordinary work, interrupts active work safely, and restores current workers. **Resume work** reopens it. The control remains available in collapsed view.
 
 Work-giver result patches reject paused-area jobs early. A periodic consolidated scan catches jobs injected by other mods. Job transitions share rate-limited exception handling.
+
+Pauses use deterministic, safety-first overlap precedence: if any enabled overlapping rule is paused, ordinary work is blocked in the shared cells. Readiness distinguishes a partially restricted rule that remains active elsewhere from a rule whose entire work area is covered by paused overlaps. Return travel and exact restoration jobs are narrowly exempt so a worker cannot be stranded while complying with the pause.
 
 ### Access controls
 
@@ -98,7 +106,7 @@ Hot-path checks use cached field access, non-allocating missing-gear tests, inde
 
 ### User interface
 
-The **Auto Apparel** main tab provides:
+The **AutomaticOutfitManager** main tab provides:
 
 - Named enabled/disabled rules
 - Work-area and locker-area selection with native hover overlays
@@ -108,7 +116,7 @@ The **Auto Apparel** main tab provides:
 - Readiness and gear availability
 - Worker, hauler, and wanderer activity
 - Detailed hover status and click-to-jump
-- Per-worker recall and recall-all/resume
+- Per-worker return and area-wide pause/resume
 - Persistent collapse/expand state
 - Rule deletion and RimWorld area management
 
@@ -129,6 +137,8 @@ The **Auto Apparel** main tab provides:
 - Drafted, temperature, environment, hediff, or generic hazard triggers where appropriate
 - Strict, warning, and best-effort behavior modes
 - Apparel quality, condition, and material filters
+- Optional melee, ranged, or either-weapon requirements for armories, guard posts, and similar work areas
+- Weapon handling that respects drafted equipment, sidearm/weapon-management mods, ideology constraints, and explicit player orders
 
 ## Phase 4 — User experience (planned)
 
@@ -148,9 +158,10 @@ Harmony patches should remain narrow, avoid destructive replacement of core syst
 ## Repository structure
 
 ```text
-AutomaticApparelManager/
+AutomaticOutfitManager/
 ├── About/
-│   └── About.xml
+│   ├── About.xml
+│   └── ModIcon.png
 ├── Defs/
 │   ├── MainButtonDefs/
 │   ├── SpecialThingFilterDefs/
@@ -165,6 +176,8 @@ AutomaticApparelManager/
 │   ├── State/
 │   ├── Storage/
 │   └── UI/
+├── Textures/
+│   └── UI/Buttons/MainButtons/
 ├── build.ps1
 ├── PROJECT-DESIGN.md
 └── README.md

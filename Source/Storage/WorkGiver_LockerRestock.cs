@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
-using AutomaticApparel.Core;
+using AutomaticOutfitManager.Core;
 using RimWorld;
 using Verse;
 using Verse.AI;
 
-namespace AutomaticApparel.Storage
+namespace AutomaticOutfitManager.Storage
 {
     /// <summary>
     /// Low-priority, ordinary hauling work that returns loose required gear to
@@ -36,7 +36,7 @@ namespace AutomaticApparel.Storage
                 return false;
             }
 
-            AutomaticApparelGameComponent component = AutomaticApparelGameComponent.Current;
+            AutomaticOutfitManagerGameComponent component = AutomaticOutfitManagerGameComponent.Current;
             var rules = component?.Rules?
                 .Where(rule => rule != null && rule.Enabled && rule.WorkAreaPaused &&
                                rule.ChangingArea?.Map == pawn.Map &&
